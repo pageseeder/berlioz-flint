@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  This file contains the logback configuration for this project in development mode.
+
+  @version BerliozBase-0.8.1
+-->
+<configuration debug="false" scan="true" scanPeriod="30 seconds">
+
+  <!-- PageSeeder -->
+  <contextName>Berlioz</contextName>
+
+  <!-- Sends logs to Logback's Beagle Eclipse plugin -->
+  <consolePlugin />
+
+  <!-- Console appender -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%-4relative [%thread] %-5level %logger{35} - %msg %n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- EH Cache -->
+  <logger name="net.sf.ehcache" level="INFO" />
+
+  <!-- Berlioz -->
+  <logger name="org.pageseeder.berlioz" level="INFO" />
+
+  <!-- Bastille -->
+  <logger name="org.pageseeder.bastille" level="INFO" />
+
+  <root level="DEBUG">
+    <appender-ref ref="STDOUT"/>
+  </root>
+
+</configuration>

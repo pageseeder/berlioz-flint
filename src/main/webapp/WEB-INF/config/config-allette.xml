@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<!--
+  This file contains the global settings made available to generators in production mode (web).
+-->
+<global>
+
+  <!--
+    Berlioz configuration options:
+    - errors.handle          Whether Berlioz should handle errors or simply let the Web container do it [true]
+    - errors.generator-catch Whether errors occurring in generator should be handled then or bubble up [true]
+    - http.compression       Whether Berlioz should use HTTP compression [true].
+    - http.get-via-post      Whether Berlioz should accept POST requests to a GET service [true]
+    - http.max-age           The default max age in seconds for Berlioz responses (overridden by individual services) [60]
+    - xslt.cache             Whether to cache the XSLT, use true for production; but false for development [true]
+  -->
+  <berlioz>
+    <errors handle="true" generator-catch="false"/>
+    <http compression="true" get-via-post="true" max-age="45"/>
+    <xml parse-strict="true" header.version="1.0"/>
+    <xslt cache="true"/>
+  </berlioz>
+
+  <!--
+    Bastille configuration options
+
+    - psml.root                 Defines the root of all PSML documents within the repository [psml]
+    - pageseeder.host           The host for the related PageSeeder server [localhost]
+    - pageseeder.port           The port for the related PageSeeder server [8080]
+    - pageseeder.siteprefix     The site prefix for the related PageSeeder server [/ps]
+    - pageseeder.servletprefix  The servlet prefix for the related PageSeeder server [/ps/servlet]
+    - pageseeder.admin.username The username of a PageSeeder administrator
+    - pageseeder.admin.password The password of a PageSeeder administrator
+    - authenticator.type        The type of authenticator (e.g. pageseeder)
+    - authenticator.member-of   A list of group(s) a user must be a member of to authenticate
+  -->
+  <bastille>
+    <psml root="psml" content="content" config="config"/>
+    <pageseeder scheme="https"   host="ps.allette.com.au"    port="443"
+             urischeme="http" urihost="ps.allette.com.au" uriport="8080">
+      <guest username="berlioz-team" password="hc7nfqpyfcfeiiaswfu"/>
+    </pageseeder>
+    <authenticator type="pageseeder" member-of="allette-team"/>
+    <jsbundler minimize="true" location="/script/_/">
+      <configs default="global,group,service"/>
+      <bundles global="/style/global.js,/script/lib/jquery.toc.js,/script/lib/jquery.discussions.js"
+                group="/script/{GROUP}.js"
+              service="/script/{GROUP}/{SERVICE}.js"/>
+    </jsbundler>
+  </bastille>
+
+</global>
