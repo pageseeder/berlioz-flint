@@ -22,27 +22,29 @@ import org.pageseeder.xmlwriter.XMLWriter;
 /*
  * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
  */
-public abstract class IndexGenerator
-implements ContentGenerator {
-    public static final String INDEX_PARAMETER = "index";
+public abstract class IndexGenerator implements ContentGenerator {
+  public static final String INDEX_PARAMETER = "index";
 
-    public void process(ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-        String name = req.getParameter("index");
-        if (name == null) {
-            this.processSingle(FlintConfig.getMaster(), req, xml);
-        } else {
-            ArrayList<IndexMaster> indexes = new ArrayList<IndexMaster>();
-            for (String aname : name.split(",")) {
-                IndexMaster amaster = FlintConfig.getMaster(aname);
-                if (amaster == null) continue;
-                indexes.add(amaster);
-            }
-            this.processMultiple(indexes, req, xml);
-        }
+  public void process(ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
+    String name = req.getParameter(INDEX_PARAMETER);
+    if (name == null) {
+      this.processSingle(FlintConfig.get().getMaster(), req, xml);
+    } else {
+      ArrayList<IndexMaster> indexes = new ArrayList<IndexMaster>();
+      for (String aname : name.split(",")) {
+        IndexMaster amaster = FlintConfig.get().getMaster(aname);
+        if (amaster == null) continue;
+        indexes.add(amaster);
+      }
+      if (indexes.size() == 1)
+        this.processSingle(indexes.get(0), req, xml);
+      else
+        this.processMultiple(indexes, req, xml);
     }
+  }
 
-    public abstract void processSingle(IndexMaster var1, ContentRequest var2, XMLWriter var3) throws BerliozException, IOException;
+  public abstract void processSingle(IndexMaster var1, ContentRequest var2, XMLWriter var3) throws BerliozException, IOException;
 
-    public abstract void processMultiple(Collection<IndexMaster> var1, ContentRequest var2, XMLWriter var3) throws BerliozException, IOException;
+  public abstract void processMultiple(Collection<IndexMaster> var1, ContentRequest var2, XMLWriter var3) throws BerliozException, IOException;
 }
 

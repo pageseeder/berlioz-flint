@@ -58,7 +58,7 @@ public final class ListIndexes implements ContentGenerator, Cacheable {
       // loop through index folders
       for (File folder : config.getRootDirectory().listFiles()) {
         if (folder.isDirectory()) {
-          this.indexToXML(folder.getName(), FlintConfig.getMaster(folder.getName()), xml);
+          this.indexToXML(folder.getName(), config.getMaster(folder.getName()), xml);
         }
       }
     } finally {
@@ -88,7 +88,8 @@ public final class ListIndexes implements ContentGenerator, Cacheable {
         try {
           dreader = DirectoryReader.open((Directory) index.getIndex().getIndexDirectory());
           // index details
-          xml.attribute("last-modified", ISO8601.DATETIME.format(FlintConfig.getManager().getLastTimeUsed(index.getIndex())));
+          long lm = FlintConfig.get().getManager().getLastTimeUsed(index.getIndex());
+          if (lm > 0) xml.attribute("last-modified", ISO8601.DATETIME.format(lm));
           xml.attribute("current", Boolean.toString(dreader.isCurrent()));
           xml.attribute("version", Long.toString(dreader.getVersion()));
           // document counts

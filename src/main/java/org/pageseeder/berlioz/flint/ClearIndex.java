@@ -19,29 +19,28 @@ import org.pageseeder.berlioz.flint.model.IndexMaster;
 import org.pageseeder.xmlwriter.XMLWriter;
 
 /*
- * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
+ * Used to clear an index.
  */
 @Beta
-public final class ClearIndex
-extends IndexGenerator {
-    @Override
-    public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-        index.clear();
-        xml.openElement("index");
-        xml.attribute("status", "clear");
-        xml.closeElement();
-    }
+public final class ClearIndex extends IndexGenerator {
 
-    @Override
-    public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-        xml.openElement("indexes");
-        for (IndexMaster index : indexes) {
-            index.clear();
-            xml.openElement("index");
-            xml.attribute("status", "clear");
-            xml.closeElement();
-        }
-        xml.closeElement();
+  @Override
+  public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
+    index.clear();
+    xml.openElement("index");
+    xml.attribute("status", "clear");
+    xml.closeElement();
+  }
+
+  @Override
+  public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
+    xml.openElement("indexes");
+    for (IndexMaster index : indexes) {
+      index.clear();
+      xml.openElement("index");
+      xml.attribute("status", "clear");
+      xml.closeElement();
     }
+    xml.closeElement();
+  }
 }
-

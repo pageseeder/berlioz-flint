@@ -46,6 +46,8 @@ import org.pageseeder.flint.query.SearchQuery;
 import org.pageseeder.flint.query.SearchResults;
 import org.pageseeder.flint.query.TermParameter;
 import org.pageseeder.flint.search.Facet;
+import org.pageseeder.flint.search.FieldFacet;
+import org.pageseeder.flint.util.Facets;
 import org.pageseeder.xmlwriter.XMLWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,10 +68,10 @@ public class FulltextSearch extends IndexGenerator {
       theIndexes.add(index.getIndex());
     }
     try {
-      IndexManager manager = FlintConfig.getManager();
+      IndexManager manager = FlintConfig.get().getManager();
       SearchResults results = manager.query(theIndexes, query, paging);
-      List<Facet> facetsList = manager.getFacets(Arrays.asList(facets.split(",")), 10, query.toQuery(), theIndexes);
-      this.outputResults(query, results, facetsList, xml);
+      List<FieldFacet> facetsList = Facets.getFacets(manager, Arrays.asList(facets.split(",")), 10, query.toQuery(), theIndexes);
+      outputResults(query, results, facetsList, xml);
     } catch (IndexException ex) {
       LOGGER.warn("Fail to retrieve search result using query: {}",
           (Object) query.toString(), (Object) ex);
@@ -81,11 +83,11 @@ public class FulltextSearch extends IndexGenerator {
     String facets = req.getParameter("facets", "");
     SearchQuery query = this.buildQuery(req);
     SearchPaging paging = this.buildPaging(req);
-    IndexManager manager = FlintConfig.getManager();
+    IndexManager manager = FlintConfig.get().getManager();
     try {
       SearchResults results = index.query(query, paging);
-      List<Facet> facetsList = manager.getFacets(Arrays.asList(facets.split(",")), 10, query.toQuery(), index.getIndex());
-      this.outputResults(query, results, facetsList, xml);
+      List<FieldFacet> facetsList = Facets.getFacets(manager, Arrays.asList(facets.split(",")), 10, query.toQuery(), index.getIndex());
+      outputResults(query, results, facetsList, xml);
     } catch (IndexException ex) {
       LOGGER.warn("Fail to retrieve search result using query: {}",
           (Object) query.toString(), (Object) ex);
@@ -114,7 +116,7 @@ public class FulltextSearch extends IndexGenerator {
     return paging;
   }
 
-  private void outputResults(SearchQuery query, SearchResults results, List<Facet> facets, XMLWriter xml) throws IOException {
+  private void outputResults(SearchQuery query, SearchResults results, List<FieldFacet> facets, XMLWriter xml) throws IOException {
     for (Facet facet : facets) {
       facet.toXML(xml);
     }

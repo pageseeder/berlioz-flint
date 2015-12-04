@@ -33,46 +33,50 @@ import org.slf4j.LoggerFactory;
 /*
  * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
  */
-public final class LookupSimilarTerms
-extends IndexGenerator
-implements Cacheable {
-    private static final Logger LOGGER = LoggerFactory.getLogger((Class)LookupSimilarTerms.class);
+public final class LookupSimilarTerms extends IndexGenerator
+    implements Cacheable {
+  private static final Logger LOGGER = LoggerFactory
+      .getLogger((Class) LookupSimilarTerms.class);
 
-    public String getETag(ContentRequest req) {
-        StringBuilder etag = new StringBuilder();
-        etag.append(req.getParameter("term", "keyword")).append('%');
-        etag.append(req.getParameter("field", "fulltext")).append('%');
-        String index = req.getParameter("index");
-        if (index != null) {
-            for (String ind : index.split(",")) {
-                etag.append(FlintConfig.getMaster(ind).lastModified()).append('%');
-            }
-        } else {
-            IndexMaster master = FlintConfig.getMaster();
-            if (master != null) {
-                etag.append(master.lastModified()).append('%');
-            }
-        }
-        return MD5.hash((String)etag.toString());
+  public String getETag(ContentRequest req) {
+    StringBuilder etag = new StringBuilder();
+    etag.append(req.getParameter("term", "keyword")).append('%');
+    etag.append(req.getParameter("field", "fulltext")).append('%');
+    String index = req.getParameter("index");
+    if (index != null) {
+      for (String ind : index.split(",")) {
+        etag.append(FlintConfig.get().getMaster(ind).lastModified())
+            .append('%');
+      }
+    } else {
+      IndexMaster master = FlintConfig.get().getMaster();
+      if (master != null) {
+        etag.append(master.lastModified()).append('%');
+      }
     }
+    return MD5.hash((String) etag.toString());
+  }
 
-    @Override
-    public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-        String[] fields = req.getParameter("field", "fulltext").split(",");
-        String text = req.getParameter("term", "keyword");
-        LOGGER.debug("Looking up fuzzy terms for {} in {}", (Object)text, (Object)fields);
-        ArrayList<Index> theIndexes = new ArrayList<Index>();
-        for (IndexMaster index : indexes) {
-            theIndexes.add(index.getIndex());
-        }
+  @Override
+  public void processMultiple(Collection<IndexMaster> indexes,
+      ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
+    String[] fields = req.getParameter("field", "fulltext").split(",");
+    String text = req.getParameter("term", "keyword");
+    LOGGER.debug("Looking up fuzzy terms for {} in {}", (Object) text,
+        (Object) fields);
+    ArrayList<Index> theIndexes = new ArrayList<Index>();
+    for (IndexMaster index : indexes) {
+      theIndexes.add(index.getIndex());
     }
+  }
 
-    @Override
-    public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-        String[] fields = req.getParameter("field", "fulltext").split(",");
-        String text = req.getParameter("term", "keyword");
-        LOGGER.debug("Looking up fuzzy terms for {} in {}", (Object)text, (Object)fields);
-        IndexManager manager = FlintConfig.getManager();
-    }
+  @Override
+  public void processSingle(IndexMaster index, ContentRequest req,
+      XMLWriter xml) throws BerliozException, IOException {
+    String[] fields = req.getParameter("field", "fulltext").split(",");
+    String text = req.getParameter("term", "keyword");
+    LOGGER.debug("Looking up fuzzy terms for {} in {}", (Object) text,
+        (Object) fields);
+    IndexManager manager = FlintConfig.get().getManager();
+  }
 }
-

@@ -54,13 +54,9 @@ public final class GetIndexTerms implements ContentGenerator, Cacheable {
     String field = req.getParameter(FIELD_PARAMETER);
     String index = req.getParameter(INDEX_PARAMETER);
     xml.openElement("terms");
-    if (index != null) {
-        xml.attribute("index", index);
-    }
-    if (field != null) {
-        xml.attribute("field", field);
-    }
-    IndexMaster master = FlintConfig.getMaster(index);
+    if (index != null) xml.attribute("index", index);
+    if (field != null) xml.attribute("field", field);
+    IndexMaster master = FlintConfig.get().getMaster(index);
     IndexReader reader = null;
     try {
       reader = master.grabReader();

@@ -23,12 +23,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+
 import org.apache.lucene.search.Query;
 import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.content.Cacheable;
 import org.pageseeder.berlioz.content.ContentRequest;
 import org.pageseeder.berlioz.content.ContentStatus;
-import org.pageseeder.berlioz.flint.IndexGenerator;
 import org.pageseeder.berlioz.flint.helper.Etags;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
@@ -37,6 +37,8 @@ import org.pageseeder.flint.IndexException;
 import org.pageseeder.flint.IndexManager;
 import org.pageseeder.flint.api.Index;
 import org.pageseeder.flint.search.Facet;
+import org.pageseeder.flint.search.FieldFacet;
+import org.pageseeder.flint.util.Facets;
 import org.pageseeder.xmlwriter.XMLWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,8 +52,8 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
 
   public String getETag(ContentRequest req) {
     StringBuilder etag = new StringBuilder();
-    etag.append(req.getParameter("field", "keyword")).append('%');
-    etag.append(req.getParameter("predicate", "")).append('%');
+    etag.append(req.getParameter("base", "")).append('%');
+    etag.append(req.getParameter("facets", "")).append('%');
     String index = req.getParameter("index");
     etag.append(Etags.getETag(index));
     return MD5.hash((String) etag.toString());
@@ -61,17 +63,20 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
   public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String base = req.getParameter("base", "");
     String facets = req.getParameter("facets", "");
-    Query query = this.buildQuery(base, req, xml);
-    if (query == null) {
-      return;
+    Query query = null;
+    if (!base.isEmpty()) {
+      query = buildQuery(base, req, xml);
+      if (query == null) return;
     }
     ArrayList<Index> theIndexes = new ArrayList<Index>();
     for (IndexMaster index : indexes) {
       theIndexes.add(index.getIndex());
     }
     try {
-      IndexManager manager = FlintConfig.getManager();
-      List<Facet> facetsList = manager.getFacets(Arrays.asList(facets.split(",")), 10, query, theIndexes);
+      IndexManager manager = FlintConfig.get().getManager();
+      List<FieldFacet> facetsList = query == null ?
+            Facets.getFacets(manager, facets.isEmpty() ? null : Arrays.asList(facets.split(",")), 10, theIndexes) :
+            Facets.getFacets(manager, Arrays.asList(facets.split(",")), 10, query, theIndexes);
       this.outputResults(base, facetsList, xml);
     } catch (IndexException ex) {
       LOGGER.warn("Fail to retrieve search result using query: {}",
@@ -83,13 +88,14 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
   public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String base = req.getParameter("base", "");
     String facets = req.getParameter("facets", "");
-    Query query = this.buildQuery(base, req, xml);
-    if (query == null) {
-      return;
+    Query query = null;
+    if (!base.isEmpty()) {
+      query = buildQuery(base, req, xml);
+      if (query == null) return;
     }
-    IndexManager manager = FlintConfig.getManager();
+    IndexManager manager = FlintConfig.get().getManager();
     try {
-      List<Facet> facetsList = manager.getFacets(Arrays.asList(facets.split(",")), 10, query, index.getIndex());
+      List<FieldFacet> facetsList = Facets.getFacets(manager, facets.isEmpty() ? null : Arrays.asList(facets.split(",")), 10, query, index.getIndex());
       this.outputResults(base, facetsList, xml);
     } catch (IndexException ex) {
       LOGGER.warn("Fail to retrieve search result using query: {}",
@@ -114,7 +120,7 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
     return query;
   }
 
-  public void outputResults(String base, Collection<Facet> facets, XMLWriter xml) throws IOException {
+  public void outputResults(String base, Collection<FieldFacet> facets, XMLWriter xml) throws IOException {
     xml.openElement("facets");
     xml.attribute("for", base);
     for (Facet facet : facets) {

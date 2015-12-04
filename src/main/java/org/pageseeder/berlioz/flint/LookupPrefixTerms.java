@@ -64,7 +64,7 @@ implements Cacheable {
         String[] fields = req.getParameter("field", "fulltext").split(",");
         String text = req.getParameter("term", "keyword");
         LOGGER.debug("Looking up fuzzy terms for {} in {}", (Object)text, (Object)fields);
-        IndexManager manager = FlintConfig.getManager();
+        IndexManager manager = FlintConfig.get().getManager();
     }
 }
 

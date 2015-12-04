@@ -30,7 +30,7 @@ import org.pageseeder.xmlwriter.XMLWriter;
 public final class GetFlintConfig
 implements ContentGenerator {
     public void process(ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-        FlintConfig config = FlintConfig.get();
+        FlintConfig config = FlintConfig.get().get();
         File directory = config.getRootDirectory();
         xml.openElement("flint-config");
         xml.attribute("directory", directory.getName().equals("index") ? "index" : directory.getName());
@@ -47,8 +47,8 @@ implements ContentGenerator {
     private void toBasicIndexXML(XMLWriter xml, File index) throws IOException {
         xml.openElement("index");
         xml.attribute("name", index.getName());
-        IndexMaster master = FlintConfig.getMaster(index.getName());
-        long modified = master == null ? -1 : FlintConfig.getManager().getLastTimeUsed(master.getIndex());
+        IndexMaster master = FlintConfig.get().getMaster(index.getName());
+        long modified = master == null ? -1 : FlintConfig.get().getManager().getLastTimeUsed(master.getIndex());
         boolean exists = modified > 0;
         xml.attribute("exists", Boolean.toString(exists));
         if (exists) {

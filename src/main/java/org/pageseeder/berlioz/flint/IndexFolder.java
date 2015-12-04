@@ -17,40 +17,50 @@ package org.pageseeder.berlioz.flint;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.util.Collection;
+
 import org.pageseeder.berlioz.BerliozException;
-import org.pageseeder.berlioz.content.ContentGenerator;
+import org.pageseeder.berlioz.GlobalSettings;
 import org.pageseeder.berlioz.content.ContentRequest;
+import org.pageseeder.berlioz.content.ContentStatus;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
-import org.pageseeder.berlioz.flint.util.FileFilters;
-import org.pageseeder.flint.IndexManager;
-import org.pageseeder.flint.local.LocalIndex;
+import org.pageseeder.berlioz.flint.util.GeneratorErrors;
+import org.pageseeder.berlioz.util.FileUtils;
 import org.pageseeder.flint.local.LocalIndexer;
 import org.pageseeder.xmlwriter.XMLWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class IndexFolder
-implements ContentGenerator {
-    private static final Logger LOGGER = LoggerFactory.getLogger((Class)IndexFolder.class);
-
-    public void process(ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-        String index = req.getParameter("index");
-        String folder = req.getParameter("folder");
-        IndexMaster master = FlintConfig.getMaster(index);
-        File psmlRoot = FlintConfig.PRIVATE_PSML;
-        File xmlRoot = FlintConfig.PRIVATE_XML;
-        File root = psmlRoot.exists() && psmlRoot.isDirectory() ? (folder == null ? psmlRoot : new File(psmlRoot, folder)) : (folder == null ? xmlRoot : new File(xmlRoot, folder));
-        LOGGER.debug("Scanning directory {} for files", (Object)root.getPath());
-        LocalIndexer indexer = new LocalIndexer(FlintConfig.getManager(), master.getLocalIndex());
-        int count = indexer.indexDocuments(root, true, FileFilters.getPSMLFiles());
-        LOGGER.debug("Added {} files to indexing queue", (Object)count);
-        xml.openElement("index-job", true);
-        if (index != null) {
-            xml.attribute("index", index);
-        }
-        xml.attribute("indexed", count);
-        xml.closeElement();
+public final class IndexFolder extends IndexGenerator {
+  private static final Logger LOGGER = LoggerFactory.getLogger(IndexFolder.class);
+  private static final FileFilter PSML = new FileFilter() {
+    public boolean accept(File f) {
+      return f.isDirectory() || f.getName().toLowerCase().endsWith(".psml");
     }
-}
+  };
+  @Override
+  public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
+    GeneratorErrors.error(req, xml, "forbidden", "Cannnot delete multiple indexes", ContentStatus.BAD_REQUEST);
+  }
 
+  @Override
+  public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
+    String folder = req.getParameter("folder");
+
+    // get folder to index
+    File root = folder != null ? new File(index.getContentRoot(), folder) : index.getContentRoot();
+    LOGGER.debug("Scanning directory {} for files", root.getPath());
+
+    LocalIndexer indexer = new LocalIndexer(FlintConfig.get().getManager(), index.getLocalIndex());
+    int count = indexer.indexFolder(root, true, PSML);
+    LOGGER.debug("Added {} files to indexing queue", (Object) count);
+
+    // output
+    xml.openElement("index-job", true);
+    xml.attribute("index", index.getName());
+    xml.attribute("folder", FileUtils.path(GlobalSettings.getRepository(), root));
+    xml.attribute("added", count);
+    xml.closeElement();
+  }
+}

@@ -12,7 +12,7 @@ public final class Etags {
 
   public static String getETag(String name) {
     StringBuilder etag = new StringBuilder();
-    IndexMaster master = FlintConfig.getMaster(name);
+    IndexMaster master = FlintConfig.get().getMaster(name);
     if (master != null) {
       etag.append(name).append('-').append(master.lastModified());
     }
