@@ -43,9 +43,10 @@ public final class ListIndexes implements ContentGenerator, Cacheable {
 
   public String getETag(ContentRequest req) {
     StringBuilder etag = new StringBuilder();
-    for (File folder : FlintConfig.get().getRootDirectory().listFiles()) {
+    FlintConfig config = FlintConfig.get();
+    for (File folder : config.getRootDirectory().listFiles()) {
       if (folder.isDirectory()) {
-        etag.append(folder.lastModified()).append('%');
+        etag.append(config.getMaster(folder.getName()).lastModified()).append('%');
       }
     }
     return MD5.hash((String) etag.toString());

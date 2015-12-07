@@ -40,8 +40,11 @@ import org.pageseeder.flint.IndexJob.Batch;
 import org.pageseeder.flint.IndexManager;
 import org.pageseeder.flint.api.ContentTranslator;
 import org.pageseeder.flint.api.ContentTranslatorFactory;
+import org.pageseeder.flint.api.ContentType;
+import org.pageseeder.flint.api.Requester;
 import org.pageseeder.flint.content.SourceForwarder;
 import org.pageseeder.flint.local.LocalFileContentFetcher;
+import org.pageseeder.flint.local.LocalFileContentType;
 import org.pageseeder.flint.local.LocalIndex;
 import org.pageseeder.flint.local.LocalIndexer;
 import org.slf4j.Logger;
@@ -229,7 +232,7 @@ public class FlintConfig {
   public Collection<Batch> getPastBatches() {
     return this.listener.getBatches();
   }
-
+  
   private IndexMaster createMaster(String name, IndexDefinition def) {
     // build content path
     File content = def.buildContentRoot(GlobalSettings.getRepository(), name);

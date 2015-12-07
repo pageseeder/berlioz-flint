@@ -7,14 +7,15 @@ import java.util.Collection;
 import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.Beta;
 import org.pageseeder.berlioz.content.ContentRequest;
+import org.pageseeder.berlioz.content.ContentStatus;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
 import org.pageseeder.berlioz.flint.util.GeneratorErrors;
 import org.pageseeder.flint.IndexException;
 import org.pageseeder.flint.api.Index;
+import org.pageseeder.flint.query.AnyTermParameter;
 import org.pageseeder.flint.query.BasicQuery;
 import org.pageseeder.flint.query.SearchPaging;
-import org.pageseeder.flint.query.SearchParameter;
 import org.pageseeder.flint.query.SearchQuery;
 import org.pageseeder.flint.query.SearchResults;
 import org.pageseeder.flint.query.TermParameter;
@@ -51,12 +52,17 @@ public final class TermSearch extends IndexGenerator {
       outputResults(query, index.query(query, paging), xml);
     } catch (IndexException ex) {
       LOGGER.warn("Fail to retrieve search result using query: {}", query, ex);
+      GeneratorErrors.error(req, xml, "server", "Failed to perform search: "+ex.getMessage(), ContentStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   private SearchQuery buildQuery(ContentRequest req, XMLWriter xml) throws IOException {
     String field = req.getParameter("field", "");
     String term  = req.getParameter("term", "");
+    // try empty query
+    if (field.isEmpty() && term.isEmpty())
+      return BasicQuery.newBasicQuery(AnyTermParameter.empty());
+    // field and term must both be there
     if (field.isEmpty()) {
       GeneratorErrors.noParameter(req, xml, "field");
       return null;
@@ -65,15 +71,14 @@ public final class TermSearch extends IndexGenerator {
       GeneratorErrors.noParameter(req, xml, "term");
       return null;
     }
-    TermParameter parameter = new TermParameter(field, term);
-    return BasicQuery.newBasicQuery((SearchParameter) parameter);
+    // build query
+    return BasicQuery.newBasicQuery(new TermParameter(field, term));
   }
 
   private SearchPaging buildPaging(ContentRequest req) {
     SearchPaging paging = new SearchPaging();
-    int page = req.getIntParameter("page", 1);
-    paging.setPage(page);
-    paging.setHitsPerPage(100);
+    paging.setPage(req.getIntParameter("page", 1));
+    paging.setHitsPerPage(req.getIntParameter("results", 100));
     return paging;
   }
 
