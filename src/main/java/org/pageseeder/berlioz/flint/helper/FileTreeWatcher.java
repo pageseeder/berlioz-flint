@@ -227,7 +227,7 @@ public final class FileTreeWatcher implements Runnable {
     try {
       this._keys.put(dir.register(this.watchService, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY), dir);
       // check for max size
-      if (this._keys.size() > this._maxKeys) {
+      if (this._maxKeys != -1 && this._keys.size() > this._maxKeys) {
         LOGGER.warn("Turning off index watcher as number of folders to watch is larger than max {}", this._maxKeys);
         stop();
       }

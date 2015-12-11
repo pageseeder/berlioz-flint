@@ -25,7 +25,7 @@ import org.pageseeder.berlioz.flint.model.IndexMaster;
 import org.pageseeder.berlioz.flint.util.GeneratorErrors;
 import org.pageseeder.xmlwriter.XMLWriter;
 
-public final class IndexFolder extends IndexGenerator {
+public final class CheckIndexProgress extends IndexGenerator {
 
   @Override
   public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
@@ -34,22 +34,14 @@ public final class IndexFolder extends IndexGenerator {
 
   @Override
   public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-    String folder = req.getParameter("folder");
 
     // use asynchronous indexer
-    AsynchronousIndexer indexer = new AsynchronousIndexer(index);
-    indexer.setFolder(folder);
-    boolean newone = true;
-    if (!indexer.start()) {
-      indexer = AsynchronousIndexer.getIndexer(index);
-      newone = false;
+    AsynchronousIndexer indexer = AsynchronousIndexer.getIndexer(index);
+    if (indexer == null) {
+      GeneratorErrors.error(req, xml, "not-found", "No indexing found on that index", ContentStatus.OK);
+    } else {
+      indexer.toXML(xml);      
     }
-
-    // output
-    xml.openElement("indexing-start", true);
-    xml.attribute("new", newone ? "true" : "false");
-    indexer.toXML(xml);
-    xml.closeElement();
 
   }
 

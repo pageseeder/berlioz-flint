@@ -46,7 +46,9 @@ public final class ListIndexes implements ContentGenerator, Cacheable {
     FlintConfig config = FlintConfig.get();
     for (File folder : config.getRootDirectory().listFiles()) {
       if (folder.isDirectory()) {
-        etag.append(config.getMaster(folder.getName()).lastModified()).append('%');
+        IndexMaster master = config.getMaster(folder.getName());
+        if (master != null)
+          etag.append(master.lastModified()).append('%');
       }
     }
     return MD5.hash((String) etag.toString());

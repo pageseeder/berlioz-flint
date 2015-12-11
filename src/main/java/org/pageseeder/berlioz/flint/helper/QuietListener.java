@@ -12,8 +12,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 
+import org.pageseeder.flint.IndexBatch;
 import org.pageseeder.flint.IndexJob;
-import org.pageseeder.flint.IndexJob.Batch;
 import org.pageseeder.flint.api.IndexListener;
 import org.slf4j.Logger;
 
@@ -23,7 +23,7 @@ public final class QuietListener implements IndexListener {
   private final Logger _logger;
   private final int _maxBatches;
 
-  private final LinkedList<Batch> _batches = new LinkedList<>();
+  private final LinkedList<IndexBatch> _batches = new LinkedList<>();
 
   public QuietListener(Logger logger) {
     this(logger, MAX_NB_BATCHES);
@@ -50,7 +50,7 @@ public final class QuietListener implements IndexListener {
     this._logger.debug("Finished {}", job);
   }
 
-  public void startBatch(Batch batch) {
+  public void startBatch(IndexBatch batch) {
     this._logger.info("Started indexing documents.");
     this._batches.addFirst(batch);
     // keep max size
@@ -58,11 +58,11 @@ public final class QuietListener implements IndexListener {
       this._batches.removeLast();
   }
 
-  public void endBatch(Batch batch) {
-    this._logger.info("Indexed {} documents in {} ns", batch.getCount(), batch.getElapsedTime());
+  public void endBatch(IndexBatch batch) {
+    this._logger.info("Indexed {} documents in {} ns", batch.getTotalDocuments(), batch.getIndexingDuration());
   }
 
-  public Collection<Batch> getBatches() {
+  public Collection<IndexBatch> getBatches() {
     return new ArrayList<>(this._batches);
   }
 }

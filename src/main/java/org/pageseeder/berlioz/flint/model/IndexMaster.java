@@ -20,7 +20,6 @@ import org.pageseeder.berlioz.util.FileUtils;
 import org.pageseeder.flint.IndexException;
 import org.pageseeder.flint.IndexJob;
 import org.pageseeder.flint.IndexManager;
-import org.pageseeder.flint.api.Index;
 import org.pageseeder.flint.api.Requester;
 import org.pageseeder.flint.content.DeleteRule;
 import org.pageseeder.flint.local.LocalIndex;
@@ -31,11 +30,18 @@ import org.pageseeder.flint.query.SearchQuery;
 import org.pageseeder.flint.query.SearchResults;
 import org.pageseeder.flint.query.SuggestionQuery;
 import org.pageseeder.flint.util.Terms;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 
  */
 public final class IndexMaster extends LocalIndexConfig {
+
+  /**
+   * private logger
+   */
+  private static final Logger LOGGER = LoggerFactory.getLogger(IndexMaster.class);
   private final IndexManager _manager;
   private final String _name;
   private final File _indexRoot;
@@ -62,20 +68,20 @@ public final class IndexMaster extends LocalIndexConfig {
     this._index.setTemplate(extension, template.toURI());
   }
 
+  public void setTemplate(File template) throws TransformerException {
+    setTemplate("psml", template);
+  }
+
+  public void setTemplate(String extension, File template) throws TransformerException {
+    this._index.setTemplate(extension, template.toURI());
+  }
+  
   public boolean isInIndex(File file) {
     return FileUtils.contains(_contentRoot, file);
   }
 
-  public Index getIndex() {
+  public LocalIndex getIndex() {
     return this._index;
-  }
-
-  public LocalIndex getLocalIndex() {
-    return this._index;
-  }
-
-  public File getContentRoot() {
-    return this._contentRoot;
   }
 
   public String getName() {
@@ -124,9 +130,7 @@ public final class IndexMaster extends LocalIndexConfig {
       try {
         condition = parser.parse(predicate);
       } catch (ParseException ex) {
-        throw new IndexException(
-            "Condition for the suggestion could not be parsed.",
-            (Exception) ex);
+        throw new IndexException("Condition for the suggestion could not be parsed.", ex);
       }
     }
     return condition;
@@ -175,12 +179,23 @@ public final class IndexMaster extends LocalIndexConfig {
 
     // use local indexer
     LocalIndexer indexer = new LocalIndexer(this._manager, this._index);
-    return indexer.indexFolder(root, FileFilters.getPSMLFiles(), existing);
+    indexer.setFileFilter(FileFilters.getPSMLFiles());
+    return indexer.indexFolder(root, existing);
   }
 
   // -------------------------------------------------------------------------------
   // local index config methods
   // -------------------------------------------------------------------------------
+  
+  @Override
+  public Analyzer getAnalyzer() {
+    return FlintConfig.newAnalyzer();
+  }
+
+  @Override
+  public File getIndexLocation() {
+   return this._indexRoot;
+  }
   
   @Override
   public File getContent() {
@@ -189,18 +204,23 @@ public final class IndexMaster extends LocalIndexConfig {
 
   @Override
   public DeleteRule getDeleteRule(File f) {
-    return new DeleteRule("_path", fileToPath(f));
-  }
-
-  @Override
-  public File getIndexLocation() {
-   return this._indexRoot;
+    try {
+      return new DeleteRule("_src", f.getCanonicalPath());
+    } catch (IOException ex) {
+      LOGGER.error("Failed to compute canonical path for {}", f, ex);
+      return null;
+    }
   }
 
   @Override
   public Map<String, String> getParameters(File file) {
     HashMap<String, String> params = new HashMap<>();
     if (file.exists()) {
+      try {
+        params.put("_src", file.getCanonicalPath());
+      } catch (IOException ex) {
+        LOGGER.error("Failed to compute canonical path for {}", file, ex);
+      }
       params.put("_path", fileToPath(file));
       params.put("_filename", file.getName());
       params.put("_visibility", "private");
@@ -209,19 +229,12 @@ public final class IndexMaster extends LocalIndexConfig {
     return params;
   }
   
-  @Override
-  public Analyzer getAnalyzer() {
-    return FlintConfig.newAnalyzer();
-  }
-  
   private String fileToPath(File f) {
-    String path = f.getAbsolutePath();
-    String root = this._contentRoot.getAbsolutePath();
-    if (path.startsWith(root)) path = path.substring(root.length());
-    return path.replace('\\', '/');
+    String path = FileUtils.path(_contentRoot, f);
+    return path == null ? f.getAbsolutePath() : '/'+path.replace('\\', '/').replaceFirst("\\.(psml|PSML)$", "");
   }
   
   private File pathToFile(String path) {
-    return new File(this._contentRoot, path);
+    return new File(this._contentRoot, path+".psml");
   }
 }

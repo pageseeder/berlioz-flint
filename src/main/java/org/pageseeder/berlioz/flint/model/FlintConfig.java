@@ -17,6 +17,8 @@
  */
 package org.pageseeder.berlioz.flint.model;
 
+import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -36,17 +38,16 @@ import org.pageseeder.berlioz.flint.helper.QuietListener;
 import org.pageseeder.berlioz.flint.helper.WatchListener;
 import org.pageseeder.berlioz.flint.model.IndexDefinition.InvalidIndexDefinitionException;
 import org.pageseeder.berlioz.util.FileUtils;
-import org.pageseeder.flint.IndexJob.Batch;
+import org.pageseeder.flint.IndexBatch;
+import org.pageseeder.flint.IndexJob.Priority;
 import org.pageseeder.flint.IndexManager;
 import org.pageseeder.flint.api.ContentTranslator;
 import org.pageseeder.flint.api.ContentTranslatorFactory;
-import org.pageseeder.flint.api.ContentType;
 import org.pageseeder.flint.api.Requester;
 import org.pageseeder.flint.content.SourceForwarder;
 import org.pageseeder.flint.local.LocalFileContentFetcher;
 import org.pageseeder.flint.local.LocalFileContentType;
 import org.pageseeder.flint.local.LocalIndex;
-import org.pageseeder.flint.local.LocalIndexer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -229,7 +230,26 @@ public class FlintConfig {
     return null;
   }
 
-  public Collection<Batch> getPastBatches() {
+  public void reloadTemplate(String defname) {
+    IndexDefinition def = getIndexDefinition(defname);
+    if (def != null) {
+      // loop through index folders
+      for (File folder : this._directory.listFiles()) {
+        if (folder.isDirectory() && def.indexNameMatches(folder.getName())) {
+          IndexMaster master = getMaster(folder.getName());
+          try {
+            master.setTemplate(def.getTemplate());
+            def.setTemplateError(null); // reset error
+          } catch (TransformerException ex) {
+            def.setTemplateError(ex.getMessageAndLocation());
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  public Collection<IndexBatch> getPastBatches() {
     return this.listener.getBatches();
   }
   
@@ -254,7 +274,8 @@ public class FlintConfig {
     FileTreeWatcher watcher = new FileTreeWatcher(root.toPath(), null, new WatchListener() {
       @Override
       public void received(Path path, Kind<Path> kind) {
-        fileChanged(path.toFile());
+        if (path.toFile().isFile() || kind == ENTRY_DELETE)
+          fileChanged(path.toFile());
       }
     }, maxFolders);
     try {
@@ -270,11 +291,12 @@ public class FlintConfig {
    * @param file the modified file
    */
   private void fileChanged(File file) {
+    LOGGER.debug("File changed {}", file);
     // find which index that file is in
     LocalIndex destination = null;
     for (IndexMaster master : this.indexes.values()) {
       if (master.isInIndex(file)) {
-        destination = master.getLocalIndex();
+        destination = master.getIndex();
         // we're done
         break;
       }
@@ -290,7 +312,7 @@ public class FlintConfig {
           IndexMaster master = createMaster(name, def);
           // store it
           this.indexes.put(name, master);
-          destination = master.getLocalIndex();
+          destination = master.getIndex();
           break;
         }
       }
@@ -298,7 +320,7 @@ public class FlintConfig {
     
     // index it if there's a destination
     if (destination != null) {
-      new LocalIndexer(this.manager, destination).indexFile(file);
+      this.manager.index(file.getAbsolutePath(), LocalFileContentType.SINGLETON, destination, new Requester("Berlioz File Watcher"), Priority.HIGH);
     } else {
       // log it?
       LOGGER.debug("Modified file does not belong to any index {}", file);

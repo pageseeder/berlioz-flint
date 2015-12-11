@@ -63,6 +63,10 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
   public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String base = req.getParameter("base", "");
     String facets = req.getParameter("facets", "");
+    if (facets.isEmpty() && base.isEmpty()) {
+      xml.emptyElement("facets");
+      return;
+    }
     Query query = null;
     if (!base.isEmpty()) {
       query = buildQuery(base, req, xml);
@@ -88,6 +92,10 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
   public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String base = req.getParameter("base", "");
     String facets = req.getParameter("facets", "");
+    if (facets.isEmpty() && base.isEmpty()) {
+      xml.emptyElement("facets");
+      return;
+    }
     Query query = null;
     if (!base.isEmpty()) {
       query = buildQuery(base, req, xml);

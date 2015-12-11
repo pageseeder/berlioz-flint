@@ -103,23 +103,26 @@ public final class Autosuggest extends IndexGenerator {
       GeneratorErrors.error(req, xml, "server", "Failed to create autosuggester: "+ex.getMessage(), ContentStatus.INTERNAL_SERVER_ERROR);
       return;
     }
+
     // fields
     suggestor.addSearchFields(Arrays.asList(fields.split(",")));
+
     // get reader
     IndexReader reader = null;
-    List<Suggestion> suggestions = null;
     try {
       reader = index.grabReader();
       suggestor.build(reader);
-      suggestions = suggestor.suggest(term, nbresults);
     } catch (IndexException ex) {
-      LOGGER.error("Failed to autosuggest", ex);
-      GeneratorErrors.error(req, xml, "server", "Failed to autosuggest: "+ex.getMessage(), ContentStatus.INTERNAL_SERVER_ERROR);
+      LOGGER.error("Failed to build autosuggest", ex);
+      GeneratorErrors.error(req, xml, "server", "Failed to build autosuggest: "+ex.getMessage(), ContentStatus.INTERNAL_SERVER_ERROR);
       return;
     } finally {
       if (reader != null) index.releaseSilently(reader);
-      clearTempDirectory(tempDir, tempRoot);
     }
+
+    List<Suggestion> suggestions = suggestor.suggest(term, nbresults);
+    suggestor.close();
+    clearTempDirectory(tempDir, tempRoot);
 
     // output
     xml.openElement("suggestions");

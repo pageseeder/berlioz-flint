@@ -45,24 +45,34 @@ import org.pageseeder.flint.query.SearchParameter;
 import org.pageseeder.flint.query.SearchQuery;
 import org.pageseeder.flint.query.SearchResults;
 import org.pageseeder.flint.query.TermParameter;
-import org.pageseeder.flint.search.Facet;
 import org.pageseeder.flint.search.FieldFacet;
 import org.pageseeder.flint.util.Facets;
 import org.pageseeder.xmlwriter.XMLWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/*
- * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
+/**
+ * Supported parameters are:
+ *   facets
+ *   field (default fulltext)
+ *   term
+ *   with
+ *   sort
+ *   page
+ *   results
  */
-public class FulltextSearch extends IndexGenerator {
-  private static final Logger LOGGER = LoggerFactory.getLogger(FulltextSearch.class);
+public class BasicSearch extends IndexGenerator {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BasicSearch.class);
 
   @Override
   public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String facets = req.getParameter("facets", "");
-    SearchQuery query = this.buildQuery(req);
-    SearchPaging paging = this.buildPaging(req);
+    SearchQuery query = buildQuery(req);
+    if (query == null) {
+      xml.emptyElement("index-search");
+      return;
+    }
+    SearchPaging paging = buildPaging(req);
     ArrayList<Index> theIndexes = new ArrayList<Index>();
     for (IndexMaster index : indexes) {
       theIndexes.add(index.getIndex());
@@ -81,8 +91,12 @@ public class FulltextSearch extends IndexGenerator {
   @Override
   public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String facets = req.getParameter("facets", "");
-    SearchQuery query = this.buildQuery(req);
-    SearchPaging paging = this.buildPaging(req);
+    SearchQuery query = buildQuery(req);
+    if (query == null) {
+      xml.emptyElement("index-search");
+      return;
+    }
+    SearchPaging paging = buildPaging(req);
     IndexManager manager = FlintConfig.get().getManager();
     try {
       SearchResults results = index.query(query, paging);
@@ -96,34 +110,46 @@ public class FulltextSearch extends IndexGenerator {
 
   private SearchQuery buildQuery(ContentRequest req) {
     String field = req.getParameter("field", "fulltext");
-    TermParameter term = new TermParameter(field, req.getParameter("term"));
-    LOGGER.debug("Search for " + (Object) term);
+    String typed = req.getParameter("term");
+    if (typed == null) return null;
+    TermParameter term = new TermParameter(field, typed);
+    LOGGER.debug("Search in field {} for term {}", field, term);
     List<SearchParameter> params = new ArrayList<SearchParameter>();
-    String category = req.getParameter("category");
-    if (category != null) {
-      params.add(new TermParameter("category", category));
+    String with = req.getParameter("with");
+    if (with != null) {
+      for (String w : with.split(",")) {
+        String[] both = w.split(":");
+        if (both.length == 2) {
+          LOGGER.debug("Adding facet with field {} and term {}", both[0], both[1]);
+          params.add(new TermParameter(both[0], both[1]));
+        } else {
+          LOGGER.warn("Ignoring invalid facet {}", w);
+        }
+      }
     }
     BasicQuery<TermParameter> query = BasicQuery.newBasicQuery(term, params);
-    query.setSort(new Sort(new SortField(null, SortField.Type.SCORE)));
+    query.setSort(new Sort(new SortField(req.getParameter("sort"), SortField.Type.SCORE)));
     return query;
   }
 
   private SearchPaging buildPaging(ContentRequest req) {
     SearchPaging paging = new SearchPaging();
     int page = req.getIntParameter("page", 1);
+    int results = req.getIntParameter("results", 100);
     paging.setPage(page);
-    paging.setHitsPerPage(100);
+    paging.setHitsPerPage(results);
     return paging;
   }
 
   private void outputResults(SearchQuery query, SearchResults results, List<FieldFacet> facets, XMLWriter xml) throws IOException {
-    for (Facet facet : facets) {
+    xml.openElement("index-search", true);
+    xml.openElement("facets");
+    for (FieldFacet facet : facets) {
       facet.toXML(xml);
     }
-    xml.openElement("index-search", true);
+    xml.closeElement();
     query.toXML(xml);
     results.toXML(xml);
-    xml.writeXML("<content-type>search-result</content-type>");
     xml.closeElement();
   }
 }

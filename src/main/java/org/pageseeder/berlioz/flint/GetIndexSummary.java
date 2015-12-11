@@ -20,17 +20,18 @@ package org.pageseeder.berlioz.flint;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.List;
 
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.pageseeder.berlioz.BerliozException;
+import org.pageseeder.berlioz.GlobalSettings;
 import org.pageseeder.berlioz.content.Cacheable;
 import org.pageseeder.berlioz.content.ContentRequest;
 import org.pageseeder.berlioz.flint.helper.Etags;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexDefinition;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
+import org.pageseeder.berlioz.util.FileUtils;
 import org.pageseeder.berlioz.util.ISO8601;
 import org.pageseeder.flint.IndexException;
 import org.pageseeder.flint.util.Terms;
@@ -67,6 +68,7 @@ public final class GetIndexSummary extends IndexGenerator implements Cacheable {
   private void indexToXML(IndexMaster index, XMLWriter xml) throws IOException {
     xml.openElement("index");
     xml.attribute("name", index.getIndex().getIndexID());
+    xml.attribute("content", '/' + FileUtils.path(GlobalSettings.getRepository(), index.getContent()));
     IndexReader reader = null;
     try {
       reader = index.grabReader();
@@ -77,24 +79,25 @@ public final class GetIndexSummary extends IndexGenerator implements Cacheable {
       DirectoryReader dreader = null;
       try {
         dreader = DirectoryReader.open(index.getIndex().getIndexDirectory());
-        xml.attribute("last-modified", ISO8601.DATETIME.format(FlintConfig.get().getManager().getLastTimeUsed(index.getIndex())));
+        long lu = FlintConfig.get().getManager().getLastTimeUsed(index.getIndex());
+        if (lu > 0) xml.attribute("last-modified", ISO8601.DATETIME.format(lu));
         xml.attribute("current", Boolean.toString(dreader.isCurrent()));
         xml.attribute("version", Long.toString(dreader.getVersion()));
+        xml.attribute("deletions", Boolean.toString(reader.hasDeletions()));
         xml.attribute("documents", reader.numDocs());
+        xml.attribute("max-doc", reader.maxDoc());
         // definition
         IndexDefinition def = FlintConfig.get().getIndexDefinitionFromIndexName(index.getName());
         if (def != null) {
-          xml.openElement("config");
-          xml.attribute("content", def.buildContentPath(index.getName()));
           xml.attribute("template", def.getTemplate().getName());
-          xml.closeElement();
         }
         // fields
-        List<String> fields = Terms.fields(reader);
+        Collection<String> fields = Terms.fields(reader);
         xml.openElement("fields");
         for (String field : fields) {
+          if (field.charAt(0) == '_') continue;
           xml.openElement("field");
-          xml.attribute("documents", dreader.getDocCount(field));
+          xml.attribute("documents", reader.getDocCount(field));
           xml.writeText(field);
           xml.closeElement();
         }

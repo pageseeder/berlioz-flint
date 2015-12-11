@@ -61,16 +61,18 @@ public final class PredicateSearch extends IndexGenerator {
       GeneratorErrors.noParameter(req, xml, "predicate");
       return null;
     }
-    boolean valid = true;
-    for (String p : predicate.split("\\s+")) {
-      if (p.indexOf(58) != -1) continue;
-      valid = false;
+    boolean tokenize = "true".equals(req.getParameter("tokenize", "true"));
+    boolean valid = predicate.indexOf(58) != -1;
+    if (tokenize) {
+      for (String p : predicate.split("\\s+")) {
+        if (p.indexOf(58) != -1) continue;
+        valid = false;
+      }
     }
     if (!valid) {
       GeneratorErrors.invalidParameter(req, xml, "predicate");
       return null;
     }
-    boolean tokenize = "true".equals(req.getParameter("tokenize", "true"));
     Analyzer analyzer = tokenize ? FlintConfig.newAnalyzer() : new KeywordAnalyzer();
     PredicateSearchQuery query = new PredicateSearchQuery(predicate, analyzer);
     Query q = query.toQuery();
