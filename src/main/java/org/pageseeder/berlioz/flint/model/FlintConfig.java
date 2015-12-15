@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.WatchEvent.Kind;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,7 +48,6 @@ import org.pageseeder.flint.api.Requester;
 import org.pageseeder.flint.content.SourceForwarder;
 import org.pageseeder.flint.local.LocalFileContentFetcher;
 import org.pageseeder.flint.local.LocalFileContentType;
-import org.pageseeder.flint.local.LocalIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -185,12 +185,17 @@ public class FlintConfig {
       String indexName  = GlobalSettings.get("flint.index."+type+".name", DEFAULT_INDEX_NAME);
       String path       = GlobalSettings.get("flint.index."+type+".path", DEFAULT_CONTENT_LOCATION);
       File template = new File(ixml, GlobalSettings.get("flint.index."+type+".template", indexName+".xsl"));
+      IndexDefinition def;
       try {
-        this.indexConfigs.put(type, new IndexDefinition(type, indexName, path, template));
+        def = new IndexDefinition(type, indexName, path, template);
         LOGGER.debug("New index config for {} with index name {}, path {} and template {}", type, indexName, path, template.getAbsolutePath());
       } catch (InvalidIndexDefinitionException ex) {
         LOGGER.warn("Ignoring invalid index definition {}: {}", type, ex.getMessage());
+        continue;
       }
+      // autosuggests
+      loadAutoSuggests(def);
+      this.indexConfigs.put(type, def);
     }
   }
 
@@ -200,6 +205,10 @@ public class FlintConfig {
 
   public final File getTemplatesDirectory() {
     return this._ixml;
+  }
+
+  public Collection<IndexMaster> listIndexes() {
+    return this.indexes.values();
   }
 
   public Collection<IndexDefinition> listDefinitions() {
@@ -238,7 +247,7 @@ public class FlintConfig {
         if (folder.isDirectory() && def.indexNameMatches(folder.getName())) {
           IndexMaster master = getMaster(folder.getName());
           try {
-            master.setTemplate(def.getTemplate());
+            master.reloadTemplate();
             def.setTemplateError(null); // reset error
           } catch (TransformerException ex) {
             def.setTemplateError(ex.getMessageAndLocation());
@@ -252,13 +261,13 @@ public class FlintConfig {
   public Collection<IndexBatch> getPastBatches() {
     return this.listener.getBatches();
   }
-  
+
   private IndexMaster createMaster(String name, IndexDefinition def) {
     // build content path
     File content = def.buildContentRoot(GlobalSettings.getRepository(), name);
     File index   = new File(GlobalSettings.getRepository(), DEFAULT_INDEX_LOCATION + File.separator + name);
     try {
-      IndexMaster master = IndexMaster.create(getManager(), name, content, index, def.getTemplate());
+      IndexMaster master = IndexMaster.create(getManager(), name, content, index, def);
       def.setTemplateError(null); // reset error
       return master;
     } catch (TransformerException ex) {
@@ -293,10 +302,10 @@ public class FlintConfig {
   private void fileChanged(File file) {
     LOGGER.debug("File changed {}", file);
     // find which index that file is in
-    LocalIndex destination = null;
+    IndexMaster destination = null;
     for (IndexMaster master : this.indexes.values()) {
       if (master.isInIndex(file)) {
-        destination = master.getIndex();
+        destination = master;
         // we're done
         break;
       }
@@ -309,10 +318,9 @@ public class FlintConfig {
         String name = def.findIndexName(path);
         if (name != null) {
           // create new index
-          IndexMaster master = createMaster(name, def);
+          destination = createMaster(name, def);
           // store it
-          this.indexes.put(name, master);
-          destination = master.getIndex();
+          this.indexes.put(name, destination);
           break;
         }
       }
@@ -320,10 +328,29 @@ public class FlintConfig {
     
     // index it if there's a destination
     if (destination != null) {
-      this.manager.index(file.getAbsolutePath(), LocalFileContentType.SINGLETON, destination, new Requester("Berlioz File Watcher"), Priority.HIGH);
+      this.manager.index(file.getAbsolutePath(), LocalFileContentType.SINGLETON, destination.getIndex(),
+                         new Requester("Berlioz File Watcher"), Priority.HIGH);
     } else {
       // log it?
       LOGGER.debug("Modified file does not belong to any index {}", file);
+    }
+  }
+
+  private final static Collection<String> VALID_AUTOSUGGEST_TYPES = Arrays.asList(new String[] {"documents", "fields", "terms"});
+  private void loadAutoSuggests(IndexDefinition def) {
+    String propPrefix = "flint.index."+def.getName()+'.';
+    // autosuggests
+    String autosuggests = GlobalSettings.get(propPrefix+"autosuggests");
+    if (autosuggests != null) {
+      for (String autosuggest : autosuggests.split(",")) {
+        String fields = GlobalSettings.get(propPrefix+autosuggest+".fields");
+        String type   = GlobalSettings.get(propPrefix+autosuggest+".type", "fields");
+        if (fields != null && VALID_AUTOSUGGEST_TYPES.contains(type)) {
+          def.addAutoSuggest(autosuggest, fields, type);
+        } else {
+          LOGGER.warn("Ignoring invalid autosuggest definition {} with fields {} and type {}", autosuggest, fields, type);
+        }
+      }
     }
   }
 }

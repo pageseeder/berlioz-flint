@@ -2,6 +2,7 @@ package org.pageseeder.berlioz.flint.model;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,13 +11,15 @@ import javax.xml.transform.TransformerException;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.pageseeder.berlioz.flint.util.FileFilters;
 import org.pageseeder.berlioz.util.FileUtils;
+import org.pageseeder.berlioz.util.MD5;
 import org.pageseeder.flint.IndexException;
 import org.pageseeder.flint.IndexJob;
 import org.pageseeder.flint.IndexManager;
@@ -28,8 +31,7 @@ import org.pageseeder.flint.local.LocalIndexer;
 import org.pageseeder.flint.query.SearchPaging;
 import org.pageseeder.flint.query.SearchQuery;
 import org.pageseeder.flint.query.SearchResults;
-import org.pageseeder.flint.query.SuggestionQuery;
-import org.pageseeder.flint.util.Terms;
+import org.pageseeder.flint.util.AutoSuggest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,35 +49,43 @@ public final class IndexMaster extends LocalIndexConfig {
   private final File _indexRoot;
   private final File _contentRoot;
   private final LocalIndex _index;
+  private final IndexDefinition _def;
 
+  private final Map<String, AutoSuggest> _autosuggests = new HashMap<>();
+  
   public static IndexMaster create(IndexManager mgr, String name,
-         File content, File index, File template) throws TransformerException {
-    return create(mgr, name, content, index, "psml", template);
+         File content, File index, IndexDefinition def) throws TransformerException {
+    return create(mgr, name, content, index, "psml", def);
   }
 
   public static IndexMaster create(IndexManager mgr, String name,
-         File content, File index, String extension, File template) throws TransformerException {
-    return new IndexMaster(mgr, name, content, index, extension, template);
+         File content, File index, String extension, IndexDefinition def) throws TransformerException {
+    return new IndexMaster(mgr, name, content, index, extension, def);
   }
 
   private IndexMaster(IndexManager mgr, String name, File content,
-      File index, String extension, File template) throws TransformerException {
+      File index, String extension, IndexDefinition def) throws TransformerException {
     this._manager = mgr;
     this._name = name;
     this._contentRoot = content;
     this._indexRoot = index;
     this._index = new LocalIndex(this);
-    this._index.setTemplate(extension, template.toURI());
+    this._index.setTemplate(extension, def.getTemplate().toURI());
+    this._def = def;
+    // create autosuggests
+    for (String an : this._def.listAutoSuggestNames()) {
+      getAutoSuggest(an);
+    }
   }
 
-  public void setTemplate(File template) throws TransformerException {
-    setTemplate("psml", template);
+  public void reloadTemplate() throws TransformerException {
+    reloadTemplate("psml");
   }
 
-  public void setTemplate(String extension, File template) throws TransformerException {
-    this._index.setTemplate(extension, template.toURI());
+  public void reloadTemplate(String extension) throws TransformerException {
+    this._index.setTemplate(extension, this._def.getTemplate().toURI());
   }
-  
+
   public boolean isInIndex(File file) {
     return FileUtils.contains(_contentRoot, file);
   }
@@ -105,22 +115,41 @@ public final class IndexMaster extends LocalIndexConfig {
     return this._manager.getLastTimeUsed(this._index);
   }
 
-  public SearchResults getSuggestions(List<String> fields, List<String> texts, int max, String predicate) throws IOException, IndexException {
-    List<Term> terms = Terms.terms(fields, texts);
-    Query condition = IndexMaster.toQuery(predicate);
-    SuggestionQuery query = new SuggestionQuery(terms, condition);
-    IndexReader reader = null;
-    try {
-      reader = this._manager.grabReader(this._index);
-      query.compute(this._index, reader);
-    } finally {
-      this.releaseSilently(reader);
+  public AutoSuggest getAutoSuggest(List<String> fields, String type) {
+    String name = createAutoSuggestTempName(fields, type);
+    AutoSuggest existing = this._autosuggests.get(name);
+    // create?
+    if (existing == null || !existing.isCurrent(this._manager)) {
+      try {
+        if (existing != null) clearAutoSuggest(name, existing);
+        return createAutoSuggest(name, type, fields);
+      } catch (IndexException | IOException ex) {
+        LOGGER.error("Failed to create autosuggest {}", name, ex);
+        return null;
+      }
     }
-    SearchPaging pages = new SearchPaging();
-    if (max > 0) {
-      pages.setHitsPerPage(max);
+    return existing;
+  }
+
+  public AutoSuggest getAutoSuggest(String name) {
+    AutoSuggest existing = this._autosuggests.get(name);
+    // create?
+    if (existing == null || !existing.isCurrent(this._manager)) {
+      IndexDefinition.AutoSuggestDefinition asd = this._def.getAutoSuggest(name);
+      if (asd != null) {
+        try {
+          if (existing != null) clearAutoSuggest(name, existing);
+          return createAutoSuggest(name, asd.getType(), asd.getSearchFields());
+        } catch (IndexException | IOException ex) {
+          LOGGER.error("Failed to create autosuggest {}", name, ex);
+          return null;
+        }
+      } else if (asd == null) {
+        LOGGER.error("Failed to find autosuggest definition with name {}", name);
+        return null;
+      }
     }
-    return this._manager.query(this._index, (SearchQuery) query, pages);
+    return existing;
   }
 
   public static Query toQuery(String predicate) throws IndexException {
@@ -181,6 +210,76 @@ public final class IndexMaster extends LocalIndexConfig {
     LocalIndexer indexer = new LocalIndexer(this._manager, this._index);
     indexer.setFileFilter(FileFilters.getPSMLFiles());
     return indexer.indexFolder(root, existing);
+  }
+
+  public void close() {
+    this._manager.closeIndex(this._index);
+    // close autosuggests
+    for (String name : this._autosuggests.keySet()) {
+      clearAutoSuggest(name, this._autosuggests.get(name));
+    }
+  }
+
+  // -------------------------------------------------------------------------------
+  // autosuggest methods
+  // -------------------------------------------------------------------------------
+
+  private static String createAutoSuggestTempName(Collection<String> fields, String type) {
+    StringBuilder name = new StringBuilder();
+    for (String field : fields)
+      name.append(field).append('%');
+    name.append(type);
+    return MD5.hash(name.toString()).toLowerCase();
+  }
+
+  private AutoSuggest createAutoSuggest(String name, String type, Collection<String> fields) throws IndexException, IOException {
+    // build name
+    String autosuggestIndexName = this._name+"_"+name+"_autosuggest";
+    // create folder
+    File autosuggestIndex = new File(FlintConfig.get().getRootDirectory(), autosuggestIndexName);
+    // create lucene dir
+    Directory autosuggestDir = FSDirectory.open(autosuggestIndex.toPath());
+    // create auto suggest object
+    AutoSuggest as;
+    if ("documents".equals(type)) {
+      as = AutoSuggest.documents(this._index, autosuggestDir, null);
+    } else if ("fields".equals(type)) {
+      as = AutoSuggest.fields(this._index, autosuggestDir);
+    } else if ("terms".equals(type)) {
+      as = AutoSuggest.terms(this._index, autosuggestDir);
+    } else {
+      throw new IllegalArgumentException("type must be one of 'documents', 'fields' or 'terms'");
+    }
+    // add fields
+    as.addSearchFields(fields);
+    // build it
+    IndexReader reader = null;
+    try {
+      reader = grabReader();
+      as.build(reader);
+    } catch (IndexException ex) {
+      LOGGER.error("Failed to build autosuggest", ex);
+    } finally {
+      if (reader != null) releaseSilently(reader);
+    }
+    // store it in cache
+    this._autosuggests.put(name, as);
+    return as;
+  }
+
+  private void clearAutoSuggest(String name, AutoSuggest as) {
+    // close it
+    as.close();
+    // build name
+    String folderName = this._name+"_"+name+"_autosuggest";
+    // get folder
+    File folder = new File(FlintConfig.get().getRootDirectory(), folderName);
+    // delete all files
+    for (File f : folder.listFiles()) {
+      f.delete();
+    }
+    // delete folder
+    folder.delete();
   }
 
   // -------------------------------------------------------------------------------

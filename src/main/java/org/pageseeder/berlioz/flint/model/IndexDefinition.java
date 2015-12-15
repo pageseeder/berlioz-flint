@@ -8,8 +8,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,16 +29,6 @@ public class IndexDefinition implements XMLWritable {
 
   /** To know what's going on */
   private static final Logger LOGGER = LoggerFactory.getLogger(IndexDefinition.class);
-  
-  /**
-   * An exception used when creating a definition.
-   */
-  public static class InvalidIndexDefinitionException extends IllegalArgumentException {
-    private static final long serialVersionUID = 1L;
-    public InvalidIndexDefinitionException(String msg) {
-      super(msg);
-    }
-  };
 
   /**
    * The definition name (or type in berlioz config)
@@ -58,6 +51,10 @@ public class IndexDefinition implements XMLWritable {
    * if there was an error with the template
    */
   private String templateError = null;
+  /**
+   * if there was an error with the template
+   */
+  private Map<String, AutoSuggestDefinition> _autosuggests = new HashMap<>();
 
   /**
    * @param name      the index name
@@ -81,6 +78,33 @@ public class IndexDefinition implements XMLWritable {
       throw new InvalidIndexDefinitionException("both path and name must be dynamic if one of them is");
   }
 
+  public String getName() {
+    return this._name;
+  }
+  public void addAutoSuggest(String name, String fields, String type) {
+    assert name != null;
+    assert fields != null;
+    assert type != null;
+    this._autosuggests.put(name, new AutoSuggestDefinition(name, fields, type));
+  }
+  public AutoSuggestDefinition addAutoSuggest(String name, List<String> fields, String type) {
+    assert name != null;
+    assert fields != null;
+    assert type != null;
+    AutoSuggestDefinition asd = new AutoSuggestDefinition(name, fields, type);
+    this._autosuggests.put(name, asd);
+    return asd;
+  }
+
+  public Collection<String> listAutoSuggestNames() {
+    return this._autosuggests.keySet();
+  }
+
+  public AutoSuggestDefinition getAutoSuggest(String name) {
+    assert name != null;
+    return this._autosuggests.get(name);
+  }
+  
   /**
    * @param error new error message
    */
@@ -242,6 +266,10 @@ public class IndexDefinition implements XMLWritable {
     xml.attribute("template", this._template.getName());
     if (this.templateError != null)
       xml.attribute("template-error", this.templateError);
+    // autosuggests
+    for (AutoSuggestDefinition as : this._autosuggests.values()) {
+      as.toXML(xml);
+    }
     if (close) xml.closeElement();
   }
 
@@ -261,6 +289,56 @@ public class IndexDefinition implements XMLWritable {
    */
   private boolean staticName() {
     return !this._indexName.contains("{name}");
+  }
+  
+  /**
+   * An exception used when creating a definition.
+   */
+  public static class InvalidIndexDefinitionException extends IllegalArgumentException {
+    private static final long serialVersionUID = 1L;
+    public InvalidIndexDefinitionException(String msg) {
+      super(msg);
+    }
+  }
+  
+  /**
+   * An exception used when creating a definition.
+   */
+  public static class AutoSuggestDefinition implements XMLWritable {
+    private final String _name;
+    private final List<String> _fields;
+    private final String _type;
+    public AutoSuggestDefinition(String name, List<String> fields, String type) {
+      this._name = name;
+      this._fields = fields;
+      this._type = type;
+    }
+    public AutoSuggestDefinition(String name, String fields, String type) {
+      this._name = name;
+      this._fields = Arrays.asList(fields.split(","));
+      this._type = type;
+    }
+    public Collection<String> getSearchFields() {
+      return _fields;
+    }
+    public String getType() {
+      return _type;
+    }
+    public String getName() {
+      return _name;
+    }
+    @Override
+    public void toXML(XMLWriter xml) throws IOException {
+      xml.openElement("autosuggest");
+      xml.attribute("name", this._name);
+      xml.attribute("type", this._type);
+      StringBuilder fields = new StringBuilder();
+      for (int i = 0; i < this._fields.size(); i++) {
+        fields.append(i == 0 ? "" : ",").append(this._fields.get(0));
+      }
+      xml.attribute("fields", fields.toString());
+      xml.closeElement();
+    }
   }
 
 }

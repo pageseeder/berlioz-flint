@@ -19,7 +19,6 @@
  */
 package org.pageseeder.berlioz.flint;
 
-import java.io.File;
 import java.io.IOException;
 
 import org.apache.lucene.index.DirectoryReader;
@@ -44,12 +43,8 @@ public final class ListIndexes implements ContentGenerator, Cacheable {
   public String getETag(ContentRequest req) {
     StringBuilder etag = new StringBuilder();
     FlintConfig config = FlintConfig.get();
-    for (File folder : config.getRootDirectory().listFiles()) {
-      if (folder.isDirectory()) {
-        IndexMaster master = config.getMaster(folder.getName());
-        if (master != null)
-          etag.append(master.lastModified()).append('%');
-      }
+    for (IndexMaster master : config.listIndexes()) {
+      etag.append(master.lastModified()).append('%');
     }
     return MD5.hash((String) etag.toString());
   }
@@ -59,10 +54,8 @@ public final class ListIndexes implements ContentGenerator, Cacheable {
     xml.openElement("indexes");
     try {
       // loop through index folders
-      for (File folder : config.getRootDirectory().listFiles()) {
-        if (folder.isDirectory()) {
-          this.indexToXML(folder.getName(), config.getMaster(folder.getName()), xml);
-        }
+      for (IndexMaster index : config.listIndexes()) {
+        indexToXML(index, xml);
       }
     } finally {
       xml.closeElement();
@@ -76,42 +69,38 @@ public final class ListIndexes implements ContentGenerator, Cacheable {
    * @param xml
    * @throws IOException
    */
-  private void indexToXML(String name, IndexMaster index, XMLWriter xml) throws IOException {
+  private void indexToXML(IndexMaster index, XMLWriter xml) throws IOException {
     xml.openElement("index");
-    xml.attribute("name", name);
-    if (index != null) {
-      IndexReader reader = null;
+    xml.attribute("name", index.getName());
+    IndexReader reader = null;
+    try {
+      reader = index.grabReader();
+    } catch (IndexException ex) {
+      xml.attribute("error", "Failed to load reader: " + ex.getMessage());
+    }
+    if (reader != null) {
+      DirectoryReader dreader = null;
       try {
-        reader = index.grabReader();
-      } catch (IndexException ex) {
-        xml.attribute("error", "Failed to load reader: " + ex.getMessage());
-      }
-      if (reader != null) {
-        DirectoryReader dreader = null;
-        try {
-          dreader = DirectoryReader.open((Directory) index.getIndex().getIndexDirectory());
-          // index details
-          long lm = FlintConfig.get().getManager().getLastTimeUsed(index.getIndex());
-          if (lm > 0) xml.attribute("last-modified", ISO8601.DATETIME.format(lm));
-          xml.attribute("current", Boolean.toString(dreader.isCurrent()));
-          xml.attribute("version", Long.toString(dreader.getVersion()));
-          // document counts
-          xml.openElement("documents");
-          xml.attribute("count", reader.numDocs());
-          xml.attribute("max", reader.maxDoc());
-          xml.closeElement();
-        } catch (IOException ex) {
-          LOGGER.error("Error while extracting index statistics", (Throwable) ex);
-        } finally {
-          // release objects
-          index.releaseSilently(reader);
-          if (dreader != null) dreader.close();
-        }
-      } else {
-        xml.attribute("error", "Null reader");
+        dreader = DirectoryReader.open((Directory) index.getIndex().getIndexDirectory());
+        // index details
+        long lm = FlintConfig.get().getManager().getLastTimeUsed(index.getIndex());
+        if (lm > 0) xml.attribute("last-modified", ISO8601.DATETIME.format(lm));
+        xml.attribute("current", Boolean.toString(dreader.isCurrent()));
+        xml.attribute("version", Long.toString(dreader.getVersion()));
+        // document counts
+        xml.openElement("documents");
+        xml.attribute("count", reader.numDocs());
+        xml.attribute("max", reader.maxDoc());
+        xml.closeElement();
+      } catch (IOException ex) {
+        LOGGER.error("Error while extracting index statistics", (Throwable) ex);
+      } finally {
+        // release objects
+        index.releaseSilently(reader);
+        if (dreader != null) dreader.close();
       }
     } else {
-      xml.attribute("error", "Null index");
+      xml.attribute("error", "Null reader");
     }
     xml.closeElement();
   }
