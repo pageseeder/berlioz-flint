@@ -232,8 +232,7 @@ public final class FileTreeWatcher implements Runnable {
         stop();
       }
     } catch (IOException ex) {
-      // TODO handle
-      ex.printStackTrace();
+      LOGGER.error("Faield to register watcher on folder {}", dir, ex);
     }
   }
 

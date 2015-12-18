@@ -20,43 +20,41 @@
 package org.pageseeder.berlioz.flint;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.content.Cacheable;
-import org.pageseeder.berlioz.content.ContentGenerator;
 import org.pageseeder.berlioz.content.ContentRequest;
-import org.pageseeder.berlioz.flint.helper.Etags;
-import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
 import org.pageseeder.berlioz.util.MD5;
 import org.pageseeder.flint.IndexException;
+import org.pageseeder.flint.MultipleIndexReader;
 import org.pageseeder.flint.util.Terms;
 import org.pageseeder.xmlwriter.XMLWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class GetIndexTerms implements ContentGenerator, Cacheable {
+public final class GetIndexTerms extends IndexGenerator implements Cacheable {
   private static final Logger LOGGER = LoggerFactory.getLogger(GetIndexTerms.class);
-  private static final String INDEX_PARAMETER = "index";
   private static final String FIELD_PARAMETER = "field";
 
   public String getETag(ContentRequest req) {
-    return MD5.hash(Etags.getETag(req.getParameter(INDEX_PARAMETER)) + "-" + req.getParameter(FIELD_PARAMETER));
+    return MD5.hash(buildIndexEtag(req) + "-" + req.getParameter(FIELD_PARAMETER));
   }
 
-  /**
-   * 
-   */
-  public void process(ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
+  @Override
+  public void processSingle(IndexMaster master, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String field = req.getParameter(FIELD_PARAMETER);
-    String index = req.getParameter(INDEX_PARAMETER);
+    if (field == null) {
+      xml.emptyElement("terms");
+      return;
+    }
     xml.openElement("terms");
-    if (index != null) xml.attribute("index", index);
-    if (field != null) xml.attribute("field", field);
-    IndexMaster master = FlintConfig.get().getMaster(index);
+    xml.attribute("field", field);
+    xml.attribute("index", master.getName());
     IndexReader reader = null;
     try {
       reader = master.grabReader();
@@ -65,23 +63,49 @@ public final class GetIndexTerms implements ContentGenerator, Cacheable {
       xml.closeElement();
       return;
     }
-    if (reader != null) {
-      try {
-        if (field != null) {
-          List<Term> terms = Terms.terms(reader, field);
-          for (Term term : terms) {
-            toXML(field, term, reader, xml);
-          }
-        }
-      } catch (IOException ex) {
-        GetIndexTerms.LOGGER.error("Error while extracting term statistics", (Throwable)ex);
-      } finally {
-        master.releaseSilently(reader);
+    try {
+      List<Term> terms = Terms.terms(reader, field);
+      for (Term term : terms) {
+        toXML(field, term, reader, xml);
       }
-    } else {
-      xml.attribute("error", "Reader is null");
+    } catch (IOException ex) {
+      LOGGER.error("Error while extracting term statistics", ex);
+    } finally {
+      if (reader != null)
+        master.releaseSilently(reader);
+      xml.closeElement();
     }
-    xml.closeElement();
+  }
+
+  @Override
+  public void processMultiple(Collection<IndexMaster> masters, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
+    String field = req.getParameter(FIELD_PARAMETER);
+    if (field == null) {
+      xml.emptyElement("terms");
+      return;
+    }
+    xml.openElement("terms");
+    xml.attribute("field", field);
+    MultipleIndexReader multiReader = buildMultiReader(masters);
+    IndexReader reader = null;
+    try {
+      reader = multiReader.grab();
+    } catch (IndexException ex) {
+      xml.attribute("error", "Failed to load reader: " + ex.getMessage());
+      xml.closeElement();
+      return;
+    }
+    try {
+      List<Term> terms = Terms.terms(reader, field);
+      for (Term term : terms) {
+        toXML(field, term, reader, xml);
+      }
+    } catch (IOException ex) {
+      LOGGER.error("Error while extracting term statistics", ex);
+    } finally {
+      multiReader.releaseSilently();
+      xml.closeElement();
+    }
   }
 
   private static void toXML(String field, Term term, IndexReader reader, XMLWriter xml) throws IOException {

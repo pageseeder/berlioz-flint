@@ -58,7 +58,7 @@ public final class GetIndexDefinition implements ContentGenerator, Cacheable {
       // reload template?
       if ("true".equals(req.getParameter("reload-template", "false"))) {
         FlintConfig.get().reloadTemplate(name);
-        xml.attribute("template-reloaded", "true");
+        xml.element("template-reloaded", "true");
       }
       // find roots
       Collection<File> roots = def.findContentRoots(GlobalSettings.getRepository());

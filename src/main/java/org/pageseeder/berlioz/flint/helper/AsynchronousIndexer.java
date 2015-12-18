@@ -142,7 +142,11 @@ public class AsynchronousIndexer implements Runnable, XMLWritable {
       int current = 0;
       for (File file : files.keySet()) {
         xml.openElement("file");
-        xml.attribute("path", '/'+FileUtils.path(root, file));
+        try {
+          xml.attribute("path", '/'+FileUtils.path(root, file));
+        } catch (IllegalArgumentException ex) {
+          xml.attribute("path", file.getAbsolutePath());
+        }
         xml.attribute("action", files.get(file).name().toLowerCase());
         xml.closeElement();
         if (current++ > max) break;

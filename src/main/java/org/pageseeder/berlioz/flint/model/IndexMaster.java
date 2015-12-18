@@ -2,6 +2,7 @@ package org.pageseeder.berlioz.flint.model;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -10,6 +11,7 @@ import java.util.Map;
 import javax.xml.transform.TransformerException;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
@@ -25,6 +27,7 @@ import org.pageseeder.flint.IndexJob;
 import org.pageseeder.flint.IndexManager;
 import org.pageseeder.flint.api.Requester;
 import org.pageseeder.flint.content.DeleteRule;
+import org.pageseeder.flint.local.LocalFileContent;
 import org.pageseeder.flint.local.LocalIndex;
 import org.pageseeder.flint.local.LocalIndexConfig;
 import org.pageseeder.flint.local.LocalIndexer;
@@ -218,6 +221,18 @@ public final class IndexMaster extends LocalIndexConfig {
     for (String name : this._autosuggests.keySet()) {
       clearAutoSuggest(name, this._autosuggests.get(name));
     }
+  }
+
+  public void generateIXML(File f, Writer out) throws IndexException, IOException {
+    // create content
+    LocalFileContent content = new LocalFileContent(f, this._index.getConfig());
+    this._manager.contentToIXML(this._index, content, getParameters(f), out);
+  }
+
+  public List<Document> generateLuceneDocuments(File f) throws IndexException, IOException {
+    // create content
+    LocalFileContent content = new LocalFileContent(f, this._index.getConfig());
+    return this._manager.contentToDocuments(this._index, content, getParameters(f));
   }
 
   // -------------------------------------------------------------------------------

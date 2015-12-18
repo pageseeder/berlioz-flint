@@ -12,11 +12,15 @@ package org.pageseeder.berlioz.flint;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+
 import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.content.ContentGenerator;
 import org.pageseeder.berlioz.content.ContentRequest;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
+import org.pageseeder.flint.MultipleIndexReader;
+import org.pageseeder.flint.api.Index;
 import org.pageseeder.xmlwriter.XMLWriter;
 
 /*
@@ -43,8 +47,28 @@ public abstract class IndexGenerator implements ContentGenerator {
     }
   }
 
-  public abstract void processSingle(IndexMaster var1, ContentRequest var2, XMLWriter var3) throws BerliozException, IOException;
+  public String buildIndexEtag(ContentRequest req) {
+    String names = req.getParameter(INDEX_PARAMETER);
+    FlintConfig config = FlintConfig.get();
+    StringBuilder etag = new StringBuilder();
+    for (String name : names.split(",")) {
+      IndexMaster master = config.getMaster(name);
+      if (master != null) {
+        etag.append(name).append('-').append(master.lastModified());
+      }
+    }
+    return etag.length() > 0 ? etag.toString() : null;
+  }
 
-  public abstract void processMultiple(Collection<IndexMaster> var1, ContentRequest var2, XMLWriter var3) throws BerliozException, IOException;
+  public MultipleIndexReader buildMultiReader(Collection<IndexMaster> masters) {
+    List<Index> indexes = new ArrayList<>();
+    for (IndexMaster master : masters)
+      indexes.add(master.getIndex());
+    return FlintConfig.get().getManager().getMultipleIndexReader(indexes);
+  }
+
+  public abstract void processSingle(IndexMaster master, ContentRequest req, XMLWriter xml) throws BerliozException, IOException;
+
+  public abstract void processMultiple(Collection<IndexMaster> masters, ContentRequest req, XMLWriter xml) throws BerliozException, IOException;
 }
 

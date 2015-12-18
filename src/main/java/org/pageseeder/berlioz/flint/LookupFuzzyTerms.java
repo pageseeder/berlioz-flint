@@ -35,22 +35,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Lookup the fuzzy term for the specified term.
+ * Lookup the fuzzy terms for the specified term.
+ *
+ * <p>This is a simple and efficient generator that is most useful for use with autocomplete.
  *
  * <p>Generate an ETag based on the parameters and the last modified date of the index.
  *
  * @author Christophe Lauret
- * @author Jean-Baptiste Reure
- *
- * @version 0.6.20 - 27 September 2011
+ * @version 0.6.0 - 26 July 2010
  * @since 0.6.0
  */
-public final class LookupPrefixTerms extends IndexGenerator implements Cacheable {
+public final class LookupFuzzyTerms extends IndexGenerator implements Cacheable {
 
   /**
    * Logger for debugging
    */
-  private static final Logger LOGGER = LoggerFactory.getLogger(LookupPrefixTerms.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(LookupFuzzyTerms.class);
 
   @Override
   public String getETag(ContentRequest req) {
@@ -69,14 +69,11 @@ public final class LookupPrefixTerms extends IndexGenerator implements Cacheable
     String field = req.getParameter("field", "keyword");
     Term term = new Term(field, req.getParameter("term"));
 
-    LOGGER.debug("Looking up prefix terms for {}", term);
-    xml.openElement("prefix-terms");
-
     MultipleIndexReader multiReader = buildMultiReader(masters);
     try {
       IndexReader reader = multiReader.grab();
       Bucket<Term> bucket = new Bucket<Term>(20);
-      Terms.prefix(reader, bucket, term);
+      Terms.fuzzy(reader, bucket, term);
       for (Entry<Term> e : bucket.entrySet()) {
         Terms.toXML(xml, e.item(), e.count());
       }
@@ -86,7 +83,6 @@ public final class LookupPrefixTerms extends IndexGenerator implements Cacheable
       throw new BerliozException("Exception thrown while fetching fuzzy terms", ex);
     } finally {
       multiReader.releaseSilently();
-      xml.closeElement();
     }
   }
 
@@ -99,13 +95,13 @@ public final class LookupPrefixTerms extends IndexGenerator implements Cacheable
     String field = req.getParameter("field", "keyword");
     Term term = new Term(field, req.getParameter("term"));
 
-    LOGGER.debug("Looking up prefix terms for {}", term);
-    xml.openElement("prefix-terms");
+    LOGGER.debug("Looking up fuzzy terms for "+term);
+    xml.openElement("fuzzy-terms");
     IndexReader reader = null;
     try {
       Bucket<Term> bucket = new Bucket<Term>(20);
       reader = index.grabReader();
-      Terms.prefix(reader, bucket, term);
+      Terms.fuzzy(reader, bucket, term);
       for (Entry<Term> e : bucket.entrySet()) {
         Terms.toXML(xml, e.item(), e.count());
       }
@@ -115,8 +111,9 @@ public final class LookupPrefixTerms extends IndexGenerator implements Cacheable
       throw new BerliozException("Exception thrown while fetching fuzzy terms", ex);
     } finally {
       index.releaseSilently(reader);
-      xml.closeElement();
     }
+
+    xml.closeElement();
   }
 
 }

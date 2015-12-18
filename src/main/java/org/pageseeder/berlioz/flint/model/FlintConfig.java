@@ -208,6 +208,18 @@ public class FlintConfig {
   }
 
   public Collection<IndexMaster> listIndexes() {
+    if (this.indexes.isEmpty()) {
+      // load indexes
+      for (File folder : this._directory.listFiles()) {
+        if (folder.isDirectory()) {
+          if (!folder.getName().endsWith("_autosuggest"))
+            getMaster(folder.getName());
+        } else {
+          // delete all files from old index
+          folder.delete();
+        }
+      }
+    }
     return this.indexes.values();
   }
 

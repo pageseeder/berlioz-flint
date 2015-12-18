@@ -10,13 +10,13 @@ public class FlintLifecycleListener implements LifecycleListener {
 
   @Override
   public boolean start() {
-    System.out.print("[BERLIOZ_INIT] Lifecycle: Loading Flint Indexes");
+    System.out.println("[BERLIOZ_INIT] Lifecycle: Loading Flint Indexes");
     FlintConfig config = FlintConfig.get();
     int nb = 0;
     for (File folder : config.getRootDirectory().listFiles()) {
       if (folder.isDirectory()) {
         if (config.getMaster(folder.getName()) == null) {
-          System.out.print("[BERLIOZ_INIT] Lifecycle: Failed to load index "+folder.getName());
+          System.out.println("[BERLIOZ_INIT] Lifecycle: Failed to load index "+folder.getName());
         } else {
           nb++;
         }

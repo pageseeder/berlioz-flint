@@ -29,7 +29,6 @@ import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.content.Cacheable;
 import org.pageseeder.berlioz.content.ContentRequest;
 import org.pageseeder.berlioz.content.ContentStatus;
-import org.pageseeder.berlioz.flint.helper.Etags;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
 import org.pageseeder.berlioz.util.MD5;
@@ -50,13 +49,13 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
 
   private static final Logger LOGGER = LoggerFactory .getLogger(GetFacets.class);
 
+  @Override
   public String getETag(ContentRequest req) {
     StringBuilder etag = new StringBuilder();
     etag.append(req.getParameter("base", "")).append('%');
     etag.append(req.getParameter("facets", "")).append('%');
-    String index = req.getParameter("index");
-    etag.append(Etags.getETag(index));
-    return MD5.hash((String) etag.toString());
+    etag.append(buildIndexEtag(req));
+    return MD5.hash(etag.toString());
   }
 
   @Override

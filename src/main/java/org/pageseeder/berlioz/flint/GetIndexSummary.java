@@ -27,7 +27,6 @@ import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.GlobalSettings;
 import org.pageseeder.berlioz.content.Cacheable;
 import org.pageseeder.berlioz.content.ContentRequest;
-import org.pageseeder.berlioz.flint.helper.Etags;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexDefinition;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
@@ -46,13 +45,13 @@ public final class GetIndexSummary extends IndexGenerator implements Cacheable {
   private static final Logger LOGGER = LoggerFactory.getLogger(GetIndexSummary.class);
 
   public String getETag(ContentRequest req) {
-    return Etags.getETag(req.getParameter("index"));
+    return buildIndexEtag(req);
   }
 
   @Override
   public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     xml.openElement("index-summary");
-    this.indexToXML(index, xml);
+    this.indexToXML(index, "true".equals(req.getParameter("fields", "true")), xml);
     xml.closeElement();
   }
 
@@ -60,12 +59,12 @@ public final class GetIndexSummary extends IndexGenerator implements Cacheable {
   public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     xml.openElement("index-summary");
     for (IndexMaster index : indexes) {
-      this.indexToXML(index, xml);
+      this.indexToXML(index, "true".equals(req.getParameter("fields", "true")), xml);
     }
     xml.closeElement();
   }
 
-  private void indexToXML(IndexMaster index, XMLWriter xml) throws IOException {
+  private void indexToXML(IndexMaster index, boolean includeFields, XMLWriter xml) throws IOException {
     xml.openElement("index");
     xml.attribute("name", index.getIndex().getIndexID());
     xml.attribute("content", '/' + FileUtils.path(GlobalSettings.getRepository(), index.getContent()));
@@ -89,19 +88,22 @@ public final class GetIndexSummary extends IndexGenerator implements Cacheable {
         // definition
         IndexDefinition def = FlintConfig.get().getIndexDefinitionFromIndexName(index.getName());
         if (def != null) {
+          xml.attribute("definition", def.getName());
           xml.attribute("template", def.getTemplate().getName());
         }
         // fields
-        Collection<String> fields = Terms.fields(reader);
-        xml.openElement("fields");
-        for (String field : fields) {
-          if (field.charAt(0) == '_') continue;
-          xml.openElement("field");
-          xml.attribute("documents", reader.getDocCount(field));
-          xml.writeText(field);
+        if (includeFields) {
+          Collection<String> fields = Terms.fields(reader);
+          xml.openElement("fields");
+          for (String field : fields) {
+            if (field.charAt(0) == '_') continue;
+            xml.openElement("field");
+            xml.attribute("documents", reader.getDocCount(field));
+            xml.writeText(field);
+            xml.closeElement();
+          }
           xml.closeElement();
         }
-        xml.closeElement();
       } catch (IOException ex) {
         LOGGER.error("Error while extracting index statistics", (Throwable) ex);
       } finally {
