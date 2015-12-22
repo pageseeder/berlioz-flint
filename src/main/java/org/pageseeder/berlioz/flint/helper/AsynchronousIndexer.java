@@ -87,11 +87,12 @@ public class AsynchronousIndexer implements Runnable, XMLWritable {
     try {
       for (int i = 0; i < reader.numDocs(); i++) {
         Document doc = reader.document(i);
+        String src = doc.get("_src");
         String path = doc.get("_path");
         String lm   = doc.get("_lastmodified");
-        if (path != null && path.startsWith(afolder) && lm != null) {
+        if (src != null && path != null && path.startsWith(afolder) && lm != null) {
           try {
-            existing.put(new File(doc.get("_src")), Long.valueOf(lm));
+            existing.put(new File(src), Long.valueOf(lm));
           } catch (NumberFormatException ex) {
             // ignore, should never happen anyway
           }
