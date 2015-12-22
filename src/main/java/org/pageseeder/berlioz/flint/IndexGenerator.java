@@ -50,6 +50,8 @@ public abstract class IndexGenerator implements ContentGenerator {
   public String buildIndexEtag(ContentRequest req) {
     String names = req.getParameter(INDEX_PARAMETER);
     FlintConfig config = FlintConfig.get();
+    if (names == null)
+       return String.valueOf(config.getMaster().lastModified());
     StringBuilder etag = new StringBuilder();
     for (String name : names.split(",")) {
       IndexMaster master = config.getMaster(name);

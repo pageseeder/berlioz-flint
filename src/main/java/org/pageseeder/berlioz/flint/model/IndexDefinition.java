@@ -81,17 +81,16 @@ public class IndexDefinition implements XMLWritable {
   public String getName() {
     return this._name;
   }
-  public void addAutoSuggest(String name, String fields, String type) {
-    assert name != null;
+  public void addAutoSuggest(String name, String fields, String terms, String returnFields) {
+    assert name   != null;
     assert fields != null;
-    assert type != null;
-    this._autosuggests.put(name, new AutoSuggestDefinition(name, fields, type));
+    assert terms  != null;
+    this._autosuggests.put(name, new AutoSuggestDefinition(name, fields, Boolean.valueOf(terms), returnFields));
   }
-  public AutoSuggestDefinition addAutoSuggest(String name, List<String> fields, String type) {
-    assert name != null;
+  public AutoSuggestDefinition addAutoSuggest(String name, List<String> fields, boolean terms, List<String> returnFields) {
+    assert name   != null;
     assert fields != null;
-    assert type != null;
-    AutoSuggestDefinition asd = new AutoSuggestDefinition(name, fields, type);
+    AutoSuggestDefinition asd = new AutoSuggestDefinition(name, fields, terms, returnFields);
     this._autosuggests.put(name, asd);
     return asd;
   }
@@ -307,36 +306,59 @@ public class IndexDefinition implements XMLWritable {
   public static class AutoSuggestDefinition implements XMLWritable {
     private final String _name;
     private final List<String> _fields;
-    private final String _type;
-    public AutoSuggestDefinition(String name, List<String> fields, String type) {
+    private final List<String> _resultFields;
+    private final boolean _terms;
+    private int min = 2;
+    public AutoSuggestDefinition(String name, List<String> fields, boolean terms, List<String> resultFields) {
       this._name = name;
       this._fields = fields;
-      this._type = type;
+      this._terms = terms;
+      this._resultFields = resultFields;
     }
-    public AutoSuggestDefinition(String name, String fields, String type) {
+    public AutoSuggestDefinition(String name, String fields, boolean terms, String resultFields) {
       this._name = name;
-      this._fields = Arrays.asList(fields.split(","));
-      this._type = type;
+      this._fields = fields == null ? null : Arrays.asList(fields.split(","));
+      this._terms = terms;
+      this._resultFields = resultFields == null ? null : Arrays.asList(resultFields.split(","));
     }
     public Collection<String> getSearchFields() {
       return _fields;
     }
-    public String getType() {
-      return _type;
+    public Collection<String> getResultFields() {
+      return _resultFields;
+    }
+    public boolean useTerms() {
+      return _terms;
     }
     public String getName() {
       return _name;
+    }
+    public int minChars() {
+      return this.min;
+    }
+    public void setMinChars(int m) {
+      this.min = m;
     }
     @Override
     public void toXML(XMLWriter xml) throws IOException {
       xml.openElement("autosuggest");
       xml.attribute("name", this._name);
-      xml.attribute("type", this._type);
-      StringBuilder fields = new StringBuilder();
-      for (int i = 0; i < this._fields.size(); i++) {
-        fields.append(i == 0 ? "" : ",").append(this._fields.get(0));
+      xml.attribute("min-chars", this.min);
+      xml.attribute("terms", Boolean.toString(this._terms));
+      if (this._fields != null) {
+        StringBuilder fields = new StringBuilder();
+        for (int i = 0; i < this._fields.size(); i++) {
+          fields.append(i == 0 ? "" : ",").append(this._fields.get(0));
+        }
+        xml.attribute("fields", fields.toString());
       }
-      xml.attribute("fields", fields.toString());
+      if (this._resultFields != null && !this._resultFields.isEmpty()) {
+        StringBuilder fields = new StringBuilder();
+        for (int i = 0; i < this._resultFields.size(); i++) {
+          fields.append(i == 0 ? "" : ",").append(this._resultFields.get(0));
+        }
+        xml.attribute("result-fields", fields.toString());
+      }
       xml.closeElement();
     }
   }

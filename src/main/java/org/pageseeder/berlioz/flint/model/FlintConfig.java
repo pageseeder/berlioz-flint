@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.WatchEvent.Kind;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -348,19 +347,19 @@ public class FlintConfig {
     }
   }
 
-  private final static Collection<String> VALID_AUTOSUGGEST_TYPES = Arrays.asList(new String[] {"documents", "fields", "terms"});
   private void loadAutoSuggests(IndexDefinition def) {
     String propPrefix = "flint.index."+def.getName()+'.';
     // autosuggests
     String autosuggests = GlobalSettings.get(propPrefix+"autosuggests");
     if (autosuggests != null) {
       for (String autosuggest : autosuggests.split(",")) {
-        String fields = GlobalSettings.get(propPrefix+autosuggest+".fields");
-        String type   = GlobalSettings.get(propPrefix+autosuggest+".type", "fields");
-        if (fields != null && VALID_AUTOSUGGEST_TYPES.contains(type)) {
-          def.addAutoSuggest(autosuggest, fields, type);
+        String fields  = GlobalSettings.get(propPrefix+autosuggest+".fields");
+        String terms   = GlobalSettings.get(propPrefix+autosuggest+".terms", "false");
+        String rfields = GlobalSettings.get(propPrefix+autosuggest+".result-fields");
+        if (fields != null) {
+          def.addAutoSuggest(autosuggest, fields, terms, rfields);
         } else {
-          LOGGER.warn("Ignoring invalid autosuggest definition {} with fields {} and type {}", autosuggest, fields, type);
+          LOGGER.warn("Ignoring invalid autosuggest definition for {}: fields {}, terms {}, result fields {}", autosuggest, fields, terms, rfields);
         }
       }
     }

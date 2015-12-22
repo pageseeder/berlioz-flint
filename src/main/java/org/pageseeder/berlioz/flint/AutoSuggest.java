@@ -57,7 +57,8 @@ public final class AutoSuggest extends IndexGenerator {
     String fields  = req.getParameter("fields", req.getParameter("field", "fulltext"));
     String term    = req.getParameter("term");
     String results = req.getParameter("results", "10");
-    String type    = req.getParameter("type", "fields");
+    boolean terms  = "true".equals(req.getParameter("terms", "false"));
+    String rfields = req.getParameter("return-fields", req.getParameter("return-field"));
     // validate fields
     if (term == null) {
       GeneratorErrors.noParameter(req, xml, "term");
@@ -72,7 +73,7 @@ public final class AutoSuggest extends IndexGenerator {
     }
     org.pageseeder.flint.util.AutoSuggest suggestor;
     if (name == null) {
-      suggestor = index.getAutoSuggest(Arrays.asList(fields.split(",")), type);
+      suggestor = index.getAutoSuggest(Arrays.asList(fields.split(",")), terms, 2, rfields == null ? null : Arrays.asList(rfields.split(",")));
       if (suggestor == null) {
         GeneratorErrors.error(req, xml, "server", "Failed to create autosuggest", ContentStatus.INTERNAL_SERVER_ERROR);
         return;
@@ -92,8 +93,16 @@ public final class AutoSuggest extends IndexGenerator {
       xml.openElement("suggestion");
       xml.attribute("text",      sug.text);
       xml.attribute("highlight", sug.highlight);
-      if (sug.object != null)
-        xml.writeXML(sug.object.toString());
+      if (sug.document != null) {
+        for (String field : sug.document.keySet()) {
+          for (String value : sug.document.get(field)) {
+            xml.openElement("field");
+            xml.attribute("name", field);
+            xml.writeText(value);
+            xml.closeElement();
+          }
+        }
+      }
       xml.closeElement();
     }
     xml.closeElement();

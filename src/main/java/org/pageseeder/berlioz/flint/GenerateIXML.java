@@ -96,7 +96,6 @@ public final class GenerateIXML extends IndexGenerator {
       // documents
       xml.openElement("documents");
       try {
-        int MAX_FIELD_VALUE_LENGTH = 30;
         // load documents
         List<Document> docs = IndexParserFactory.getInstance().process(new InputSource(new StringReader(ixml)));
         for (Document doc : docs) {
@@ -124,7 +123,7 @@ public final class GenerateIXML extends IndexGenerator {
               }
             }
             // unnecessary to return the full value of long fields
-            if (value != null && value.length() < MAX_FIELD_VALUE_LENGTH) {
+            if (value != null) {
               xml.openElement("field");
               xml.attribute("name", field.name());
               // Display the correct attributes so that we know we can format the date
@@ -146,7 +145,12 @@ public final class GenerateIXML extends IndexGenerator {
                 xml.attribute("term-vector-positions", Boolean.toString(type.storeTermVectorPositions()));
                 xml.attribute("index", type.indexOptions().toString().toLowerCase().replace('_', '-'));
               }
-              xml.writeText(value);
+              if (value.length() > 100) {
+                xml.attribute("truncated", "true");
+                xml.writeText(value.substring(0, 100));
+              } else {
+                xml.writeText(value);
+              }
               xml.closeElement();
             }
           }

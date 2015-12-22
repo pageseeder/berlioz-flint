@@ -118,14 +118,14 @@ public final class IndexMaster extends LocalIndexConfig {
     return this._manager.getLastTimeUsed(this._index);
   }
 
-  public AutoSuggest getAutoSuggest(List<String> fields, String type) {
-    String name = createAutoSuggestTempName(fields, type);
+  public AutoSuggest getAutoSuggest(List<String> fields, boolean terms, int min, List<String> resultFields) {
+    String name = createAutoSuggestTempName(fields, terms, min, resultFields);
     AutoSuggest existing = this._autosuggests.get(name);
     // create?
     if (existing == null || !existing.isCurrent(this._manager)) {
       try {
         if (existing != null) clearAutoSuggest(name, existing);
-        return createAutoSuggest(name, type, fields);
+        return createAutoSuggest(name, terms, fields, min, resultFields);
       } catch (IndexException | IOException ex) {
         LOGGER.error("Failed to create autosuggest {}", name, ex);
         return null;
@@ -142,7 +142,7 @@ public final class IndexMaster extends LocalIndexConfig {
       if (asd != null) {
         try {
           if (existing != null) clearAutoSuggest(name, existing);
-          return createAutoSuggest(name, asd.getType(), asd.getSearchFields());
+          return createAutoSuggest(name, asd.useTerms(), asd.getSearchFields(), asd.minChars(), asd.getResultFields());
         } catch (IndexException | IOException ex) {
           LOGGER.error("Failed to create autosuggest {}", name, ex);
           return null;
@@ -239,15 +239,22 @@ public final class IndexMaster extends LocalIndexConfig {
   // autosuggest methods
   // -------------------------------------------------------------------------------
 
-  private static String createAutoSuggestTempName(Collection<String> fields, String type) {
+  private static String createAutoSuggestTempName(Collection<String> fields, boolean terms, int min, Collection<String> resultFields) {
     StringBuilder name = new StringBuilder();
-    for (String field : fields)
-      name.append(field).append('%');
-    name.append(type);
+    if (fields != null) {
+      for (String field : fields)
+        name.append(field).append('%');
+    }
+    name.append(terms).append('%');
+    name.append(min).append('%');
+    if (resultFields != null) {
+      for (String field : resultFields)
+        name.append(field).append('%');
+    }
     return MD5.hash(name.toString()).toLowerCase();
   }
 
-  private AutoSuggest createAutoSuggest(String name, String type, Collection<String> fields) throws IndexException, IOException {
+  private AutoSuggest createAutoSuggest(String name, boolean terms, Collection<String> fields, int min, Collection<String> resultFields) throws IndexException, IOException {
     // build name
     String autosuggestIndexName = this._name+"_"+name+"_autosuggest";
     // create folder
@@ -255,19 +262,15 @@ public final class IndexMaster extends LocalIndexConfig {
     // create lucene dir
     Directory autosuggestDir = FSDirectory.open(autosuggestIndex.toPath());
     // create auto suggest object
-    AutoSuggest as;
-    if ("documents".equals(type)) {
-      as = AutoSuggest.documents(this._index, autosuggestDir, null);
-    } else if ("fields".equals(type)) {
-      as = AutoSuggest.fields(this._index, autosuggestDir);
-    } else if ("terms".equals(type)) {
-      as = AutoSuggest.terms(this._index, autosuggestDir);
-    } else {
-      throw new IllegalArgumentException("type must be one of 'documents', 'fields' or 'terms'");
-    }
-    // add fields
-    as.addSearchFields(fields);
+    AutoSuggest.Builder aBuilder = new AutoSuggest.Builder();
+    aBuilder.index(this._index)
+            .directory(autosuggestDir)
+            .minChars(min)
+            .useTerms(terms)
+            .searchFields(fields)
+            .resultFields(resultFields);
     // build it
+    AutoSuggest as = aBuilder.build();
     IndexReader reader = null;
     try {
       reader = grabReader();
