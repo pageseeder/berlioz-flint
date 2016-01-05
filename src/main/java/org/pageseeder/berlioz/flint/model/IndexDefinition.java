@@ -348,14 +348,14 @@ public class IndexDefinition implements XMLWritable {
       if (this._fields != null) {
         StringBuilder fields = new StringBuilder();
         for (int i = 0; i < this._fields.size(); i++) {
-          fields.append(i == 0 ? "" : ",").append(this._fields.get(0));
+          fields.append(i == 0 ? "" : ",").append(this._fields.get(i));
         }
         xml.attribute("fields", fields.toString());
       }
       if (this._resultFields != null && !this._resultFields.isEmpty()) {
         StringBuilder fields = new StringBuilder();
         for (int i = 0; i < this._resultFields.size(); i++) {
-          fields.append(i == 0 ? "" : ",").append(this._resultFields.get(0));
+          fields.append(i == 0 ? "" : ",").append(this._resultFields.get(i));
         }
         xml.attribute("result-fields", fields.toString());
       }
