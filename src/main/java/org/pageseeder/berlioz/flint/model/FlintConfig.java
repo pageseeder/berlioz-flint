@@ -340,7 +340,7 @@ public class FlintConfig {
     // index it if there's a destination
     if (destination != null) {
       this.manager.index(file.getAbsolutePath(), LocalFileContentType.SINGLETON, destination.getIndex(),
-                         new Requester("Berlioz File Watcher"), Priority.HIGH);
+                         new Requester("Berlioz File Watcher"), Priority.HIGH, null);
     } else {
       // log it?
       LOGGER.debug("Modified file does not belong to any index {}", file);

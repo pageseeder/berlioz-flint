@@ -99,8 +99,6 @@ public final class ListIndexes implements ContentGenerator, Cacheable {
         index.releaseSilently(reader);
         if (dreader != null) dreader.close();
       }
-    } else {
-      xml.attribute("error", "Null reader");
     }
     xml.closeElement();
   }

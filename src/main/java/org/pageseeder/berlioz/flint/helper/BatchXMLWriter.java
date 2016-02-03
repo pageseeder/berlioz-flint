@@ -12,7 +12,7 @@ public class BatchXMLWriter {
   public static final void batchToXML(IndexBatch batch, XMLWriter xml) throws IOException {
     xml.openElement("batch");
     if (batch != null) {
-      xml.attribute("index",        batch.getIndex());
+      if (batch.getIndex() != null) xml.attribute("index", batch.getIndex());
       xml.attribute("documents",    batch.getTotalDocuments());
       xml.attribute("creation",     ISO8601.DATETIME.format(batch.getCreation().getTime()));
       if (batch.isStarted())
