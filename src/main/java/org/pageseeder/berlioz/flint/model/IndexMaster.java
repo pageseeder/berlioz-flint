@@ -346,12 +346,12 @@ public final class IndexMaster extends LocalIndexConfig {
     return params;
   }
   
-  private String fileToPath(File f) {
+  public String fileToPath(File f) {
     String path = FileUtils.path(_contentRoot, f);
     return path == null ? f.getAbsolutePath() : '/'+path.replace('\\', '/').replaceFirst("\\.(psml|PSML)$", "");
   }
   
-  private File pathToFile(String path) {
+  public File pathToFile(String path) {
     return new File(this._contentRoot, path+".psml");
   }
 }

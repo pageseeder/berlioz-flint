@@ -40,10 +40,10 @@ import org.slf4j.LoggerFactory;
  * @version 0.1.4
  * @since 0.1.0
  */
-public final class FileTreeWatcher implements Runnable {
+public final class FileTreeCrawler implements Runnable {
 
   /** To know what's going on */
-  private static final Logger LOGGER = LoggerFactory.getLogger(FileTreeWatcher.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(FileTreeCrawler.class);
 
   /** The max nb of keys to store */
   private final int _maxKeys;
@@ -73,7 +73,7 @@ public final class FileTreeWatcher implements Runnable {
    * @param ignore   A list of paths to ignore
    * @param listener The listener which receives the events
    */
-  public FileTreeWatcher(Path root, List<Path> ignore, WatchListener listener, int max) {
+  public FileTreeCrawler(Path root, List<Path> ignore, WatchListener listener, int max) {
     this._root = root;
     this._ignore = ignore == null ? new ArrayList<Path>() : ignore;
     this._listener = listener;
@@ -98,7 +98,6 @@ public final class FileTreeWatcher implements Runnable {
   public void start() throws IOException {
     this.watchService = FileSystems.getDefault().newWatchService();
     this.watchThread = new Thread(this, "Watcher");
-
     this.watchThread.start();
   }
 
@@ -145,14 +144,15 @@ public final class FileTreeWatcher implements Runnable {
           WatchEvent<Path> ev = cast(event);
           Path name = ev.context();
           Path child = dir.resolve(name);
+          LOGGER.debug("New event {} for {}", kind, child);
 
-          // Register new directories
+          // Register new folders
           if (kind == ENTRY_CREATE && Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) {
             registerAll(child);
           }
 
-          // Report all other events to the listener
-          else if (this._listener != null) {
+          // Report all events to the listener
+          if (this._listener != null) {
             this._listener.received(child, ev.kind());
           }
         }
@@ -183,14 +183,14 @@ public final class FileTreeWatcher implements Runnable {
    * @param start The directory to start from.
    */
   private synchronized void registerAll(final Path start) {
-    LOGGER.debug("Registering new folders at watch service ...");
+    LOGGER.debug("Registering new folders from {} to watch service...", start);
     try {
       int before = this._keys.size();
       Files.walkFileTree(start, new FileVisitor<Path>() {
         @Override
         public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
           // ignore folder?
-          if (FileTreeWatcher.this._ignore.contains(dir))
+          if (FileTreeCrawler.this._ignore.contains(dir))
             return FileVisitResult.SKIP_SUBTREE;
           // add it to registry then
           register(dir);
@@ -215,6 +215,7 @@ public final class FileTreeWatcher implements Runnable {
       LOGGER.info("Added {} folders to watch service", this._keys.size() - before);
     } catch (IOException ex) {
       // Don't care
+      LOGGER.info("Failed to add folders to watch service", ex);
     }
   }
 

@@ -4,7 +4,6 @@ import java.io.File;
 
 import org.pageseeder.berlioz.LifecycleListener;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
-import org.pageseeder.berlioz.flint.model.IndexMaster;
 
 public class FlintLifecycleListener implements LifecycleListener {
 
@@ -28,12 +27,8 @@ public class FlintLifecycleListener implements LifecycleListener {
 
   @Override
   public boolean stop() {
-    // shutdown all indexes
-    for (IndexMaster index : FlintConfig.get().listIndexes()) {
-      index.close();
-    }
     // stop it all
-    FlintConfig.get().getManager().stop();
+    FlintConfig.get().stop();
     return true;
   }
 

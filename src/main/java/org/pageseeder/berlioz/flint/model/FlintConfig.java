@@ -17,12 +17,7 @@
  */
 package org.pageseeder.berlioz.flint.model;
 
-import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
-
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.WatchEvent.Kind;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,20 +28,15 @@ import javax.xml.transform.TransformerException;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.pageseeder.berlioz.GlobalSettings;
-import org.pageseeder.berlioz.flint.helper.FileTreeWatcher;
+import org.pageseeder.berlioz.flint.helper.FolderWatcher;
 import org.pageseeder.berlioz.flint.helper.QuietListener;
-import org.pageseeder.berlioz.flint.helper.WatchListener;
 import org.pageseeder.berlioz.flint.model.IndexDefinition.InvalidIndexDefinitionException;
-import org.pageseeder.berlioz.util.FileUtils;
 import org.pageseeder.flint.IndexBatch;
-import org.pageseeder.flint.IndexJob.Priority;
 import org.pageseeder.flint.IndexManager;
 import org.pageseeder.flint.api.ContentTranslator;
 import org.pageseeder.flint.api.ContentTranslatorFactory;
-import org.pageseeder.flint.api.Requester;
 import org.pageseeder.flint.content.SourceForwarder;
 import org.pageseeder.flint.local.LocalFileContentFetcher;
-import org.pageseeder.flint.local.LocalFileContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,7 +62,8 @@ public class FlintConfig {
   protected static final String DEFAULT_INDEX_LOCATION = "index";
   protected static final String DEFAULT_CONTENT_LOCATION = "/psml/content";
   protected static final String DEFAULT_ITEMPLATES_LOCATION = "ixml";
-  protected static final int DEFAULT_MAX_WATCH_FOLDERS = 1000;
+  protected static final int DEFAULT_MAX_WATCH_FOLDERS = 100000;
+  protected static final int DEFAULT_WATCHER_DELAY_IN_SECONDS = 5;
   protected static final File PUBLIC = GlobalSettings.getRepository().getParentFile();
   private static volatile AnalyzerFactory analyzerFactory = null;
   private final File _directory;
@@ -82,6 +73,7 @@ public class FlintConfig {
   private final IndexManager manager;
   private final Map<String, IndexDefinition> indexConfigs = new HashMap<>();
   private final Map<String, IndexMaster> indexes = new HashMap<>();
+  private final FolderWatcher watcher;
   private static ContentTranslatorFactory TRANSLATORS = new ContentTranslatorFactory() {
 
     public ContentTranslator createTranslator(String mimeType) {
@@ -102,7 +94,7 @@ public class FlintConfig {
     SINGLETON = new FlintConfig(index, ixml);
   }
 
-  public static FlintConfig get() {
+  public static synchronized FlintConfig get() {
     if (SINGLETON == null) SINGLETON = FlintConfig.buildDefaultConfig();
     return SINGLETON;
   }
@@ -169,14 +161,19 @@ public class FlintConfig {
     int nbThreads      = GlobalSettings.get("flint.threads.number",   10);
     int threadPriority = GlobalSettings.get("flint.threads.priority", 5);
     this.listener = new QuietListener(LOGGER);
-    this.manager = new IndexManager(new LocalFileContentFetcher(), this.listener, nbThreads);
+    this.manager = new IndexManager(new LocalFileContentFetcher(), this.listener, nbThreads, false);
     this.manager.setThreadPriority(threadPriority);
     this.manager.registerTranslatorFactory(TRANSLATORS);
     // watch is on?
     boolean watch = GlobalSettings.get("flint.watcher.watch", true);
     if (watch) {
-      File root = new File(GlobalSettings.getRepository(), GlobalSettings.get("flint.watcher.root", DEFAULT_CONTENT_LOCATION));
-      startWatching(root, GlobalSettings.get("flint.watcher.max-folders", DEFAULT_MAX_WATCH_FOLDERS));
+      File root         = new File(GlobalSettings.getRepository(), GlobalSettings.get("flint.watcher.root", DEFAULT_CONTENT_LOCATION));
+      int maxFolders    = GlobalSettings.get("flint.watcher.max-folders", DEFAULT_MAX_WATCH_FOLDERS);
+      int indexingDelay = GlobalSettings.get("flint.watcher.delay",       DEFAULT_WATCHER_DELAY_IN_SECONDS);
+      this.watcher = new FolderWatcher(root, maxFolders, indexingDelay);
+      this.watcher.start();
+    } else {
+      this.watcher = null;
     }
     // load index definitions
     String types = GlobalSettings.get("flint.index.types", "default");
@@ -196,6 +193,21 @@ public class FlintConfig {
       loadAutoSuggests(def);
       this.indexConfigs.put(type, def);
     }
+  }
+
+  /**
+   * Stop the watcher if there is one and the manager.
+   */
+  public final void stop() {
+    // stop watcher if there is one
+    if (this.watcher != null)
+      this.watcher.stop();
+    // shutdown all indexes
+    for (IndexMaster index : this.indexes.values()) {
+      index.close();
+    }
+    // stop everything
+    this.manager.stop();
   }
 
   public final File getRootDirectory() {
@@ -284,66 +296,6 @@ public class FlintConfig {
     } catch (TransformerException ex) {
       def.setTemplateError(ex.getMessageAndLocation());
       return null;
-    }
-  }
-
-  /**
-   * Start the folder watcher
-   */
-  private void startWatching(File root, int maxFolders) {
-    FileTreeWatcher watcher = new FileTreeWatcher(root.toPath(), null, new WatchListener() {
-      @Override
-      public void received(Path path, Kind<Path> kind) {
-        if (path.toFile().isFile() || kind == ENTRY_DELETE)
-          fileChanged(path.toFile());
-      }
-    }, maxFolders);
-    try {
-      watcher.start();
-    } catch (IOException ex) {
-      LOGGER.error("Failed to start watcher", ex);
-    }
-  }
-
-  /**
-   * When a file was changed on the file system.
-   * 
-   * @param file the modified file
-   */
-  private void fileChanged(File file) {
-    LOGGER.debug("File changed {}", file);
-    // find which index that file is in
-    IndexMaster destination = null;
-    for (IndexMaster master : this.indexes.values()) {
-      if (master.isInIndex(file)) {
-        destination = master;
-        // we're done
-        break;
-      }
-    }
-    // found it?
-    if (destination == null) {
-      // no index, check the configs then
-      String path = '/' + FileUtils.path(GlobalSettings.getRepository(), file);
-      for (IndexDefinition def : this.indexConfigs.values()) {
-        String name = def.findIndexName(path);
-        if (name != null) {
-          // create new index
-          destination = createMaster(name, def);
-          // store it
-          this.indexes.put(name, destination);
-          break;
-        }
-      }
-    }
-    
-    // index it if there's a destination
-    if (destination != null) {
-      this.manager.index(file.getAbsolutePath(), LocalFileContentType.SINGLETON, destination.getIndex(),
-                         new Requester("Berlioz File Watcher"), Priority.HIGH, null);
-    } else {
-      // log it?
-      LOGGER.debug("Modified file does not belong to any index {}", file);
     }
   }
 
