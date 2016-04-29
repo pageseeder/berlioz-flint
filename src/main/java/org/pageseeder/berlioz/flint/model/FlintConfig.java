@@ -64,7 +64,6 @@ public class FlintConfig {
   protected static final String DEFAULT_ITEMPLATES_LOCATION = "ixml";
   protected static final int DEFAULT_MAX_WATCH_FOLDERS = 100000;
   protected static final int DEFAULT_WATCHER_DELAY_IN_SECONDS = 5;
-  protected static final File PUBLIC = GlobalSettings.getRepository().getParentFile();
   private static volatile AnalyzerFactory analyzerFactory = null;
   private final File _directory;
   private final File _ixml;
@@ -109,17 +108,20 @@ public class FlintConfig {
 
   public IndexMaster getMaster(String name) {
     String key = name == null ? DEFAULT_INDEX_NAME : name;
-    if (!this.indexes.containsKey(key)) {
-      IndexDefinition def = getIndexDefinitionFromIndexName(key);
-      if (def == null) {
-        // no config found
-        LOGGER.error("Failed to create index {}, no matching index definition found in configuration", key);
-      } else {
-        IndexMaster master = createMaster(key, def);
-        if (master != null) this.indexes.put(key, master);
+    // make sure only one gets created
+    synchronized (this.indexes) {
+      if (!this.indexes.containsKey(key)) {
+        IndexDefinition def = getIndexDefinitionFromIndexName(key);
+        if (def == null) {
+          // no config found
+          LOGGER.error("Failed to create index {}, no matching index definition found in configuration", key);
+        } else {
+          IndexMaster master = createMaster(key, def);
+          if (master != null) this.indexes.put(key, master);
+        }
       }
+      return this.indexes.get(key);
     }
-    return this.indexes.get(key);
   }
 
   /**

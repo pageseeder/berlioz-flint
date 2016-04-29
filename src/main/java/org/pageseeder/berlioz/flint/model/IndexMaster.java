@@ -120,39 +120,45 @@ public final class IndexMaster extends LocalIndexConfig {
 
   public AutoSuggest getAutoSuggest(List<String> fields, boolean terms, int min, List<String> resultFields) {
     String name = createAutoSuggestTempName(fields, terms, min, resultFields);
-    AutoSuggest existing = this._autosuggests.get(name);
-    // create?
-    if (existing == null || !existing.isCurrent(this._manager)) {
-      try {
-        if (existing != null) clearAutoSuggest(name, existing);
-        return createAutoSuggest(name, terms, fields, min, resultFields);
-      } catch (IndexException | IOException ex) {
-        LOGGER.error("Failed to create autosuggest {}", name, ex);
-        return null;
-      }
-    }
-    return existing;
-  }
-
-  public AutoSuggest getAutoSuggest(String name) {
-    AutoSuggest existing = this._autosuggests.get(name);
-    // create?
-    if (existing == null || !existing.isCurrent(this._manager)) {
-      IndexDefinition.AutoSuggestDefinition asd = this._def.getAutoSuggest(name);
-      if (asd != null) {
+    // block the list of suggesters so another thread doesn't try to create the same one
+    synchronized (this._autosuggests) {
+      AutoSuggest existing = this._autosuggests.get(name);
+      // create?
+      if (existing == null || !existing.isCurrent(this._manager)) {
         try {
           if (existing != null) clearAutoSuggest(name, existing);
-          return createAutoSuggest(name, asd.useTerms(), asd.getSearchFields(), asd.minChars(), asd.getResultFields());
+          return createAutoSuggest(name, terms, fields, min, resultFields);
         } catch (IndexException | IOException ex) {
           LOGGER.error("Failed to create autosuggest {}", name, ex);
           return null;
         }
-      } else if (asd == null) {
-        LOGGER.error("Failed to find autosuggest definition with name {}", name);
-        return null;
       }
+      return existing;
     }
-    return existing;
+  }
+
+  public AutoSuggest getAutoSuggest(String name) {
+    // block the list of suggesters so another thread doesn't try to create the same one
+    synchronized (this._autosuggests) {
+      AutoSuggest existing = this._autosuggests.get(name);
+      // create?
+      if (existing == null || !existing.isCurrent(this._manager)) {
+        IndexDefinition.AutoSuggestDefinition asd = this._def.getAutoSuggest(name);
+        if (asd != null) {
+          try {
+            if (existing != null) clearAutoSuggest(name, existing);
+            return createAutoSuggest(name, asd.useTerms(), asd.getSearchFields(), asd.minChars(), asd.getResultFields());
+          } catch (IndexException | IOException ex) {
+            LOGGER.error("Failed to create autosuggest {}", name, ex);
+            return null;
+          }
+        } else if (asd == null) {
+          LOGGER.error("Failed to find autosuggest definition with name {}", name);
+          return null;
+        }
+      }
+      return existing;
+    }
   }
 
   public static Query toQuery(String predicate) throws IndexException {
