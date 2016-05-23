@@ -153,6 +153,9 @@ public class FlintConfig {
   private static FlintConfig buildDefaultConfig() {
     File index = new File(GlobalSettings.getRepository(), DEFAULT_INDEX_LOCATION);
     File ixml  = new File(GlobalSettings.getRepository(), DEFAULT_ITEMPLATES_LOCATION);
+    if (!index.exists()) {
+      index.mkdirs(); 
+    }
     return new FlintConfig(index, ixml);
   }
 
