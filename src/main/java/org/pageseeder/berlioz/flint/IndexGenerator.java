@@ -1,6 +1,6 @@
 /*
  * Decompiled with CFR 0_110.
- * 
+ *
  * Could not load the following classes:
  *  org.pageseeder.berlioz.BerliozException
  *  org.pageseeder.berlioz.content.ContentGenerator
@@ -29,6 +29,7 @@ import org.pageseeder.xmlwriter.XMLWriter;
 public abstract class IndexGenerator implements ContentGenerator {
   public static final String INDEX_PARAMETER = "index";
 
+  @Override
   public void process(ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String name = req.getParameter(INDEX_PARAMETER);
     if (name == null) {
@@ -36,25 +37,22 @@ public abstract class IndexGenerator implements ContentGenerator {
     } else {
       ArrayList<IndexMaster> indexes = new ArrayList<IndexMaster>();
       for (String aname : name.split(",")) {
-        IndexMaster amaster = FlintConfig.get().getMaster(aname);
+        IndexMaster amaster = FlintConfig.get().getMaster(aname.trim());
         if (amaster == null) continue;
         indexes.add(amaster);
       }
-      if (indexes.size() == 1)
-        this.processSingle(indexes.get(0), req, xml);
-      else
-        this.processMultiple(indexes, req, xml);
+      if (indexes.size() == 1) this.processSingle(indexes.get(0), req, xml);
+      else this.processMultiple(indexes, req, xml);
     }
   }
 
   public String buildIndexEtag(ContentRequest req) {
     String names = req.getParameter(INDEX_PARAMETER);
     FlintConfig config = FlintConfig.get();
-    if (names == null)
-       return String.valueOf(config.getMaster().lastModified());
+    if (names == null) return String.valueOf(config.getMaster().lastModified());
     StringBuilder etag = new StringBuilder();
     for (String name : names.split(",")) {
-      IndexMaster master = config.getMaster(name);
+      IndexMaster master = config.getMaster(name.trim());
       if (master != null) {
         etag.append(name).append('-').append(master.lastModified());
       }
@@ -73,4 +71,3 @@ public abstract class IndexGenerator implements ContentGenerator {
 
   public abstract void processMultiple(Collection<IndexMaster> masters, ContentRequest req, XMLWriter xml) throws BerliozException, IOException;
 }
-
