@@ -1,6 +1,6 @@
 /*
  * Decompiled with CFR 0_110.
- * 
+ *
  * Could not load the following classes:
  *  org.pageseeder.berlioz.BerliozException
  *  org.pageseeder.berlioz.content.ContentGenerator
@@ -29,7 +29,7 @@ public final class IndexFolder extends IndexGenerator {
 
   @Override
   public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-    GeneratorErrors.error(req, xml, "forbidden", "Cannnot index folder in multiple indexes", ContentStatus.BAD_REQUEST);
+    GeneratorErrors.error(req, xml, "forbidden", "Cannot index folder in multiple indexes", ContentStatus.BAD_REQUEST);
   }
 
   @Override
