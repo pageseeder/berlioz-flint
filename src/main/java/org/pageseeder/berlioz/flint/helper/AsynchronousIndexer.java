@@ -14,7 +14,7 @@ import org.pageseeder.berlioz.GlobalSettings;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
 import org.pageseeder.berlioz.flint.util.FileFilters;
-import org.pageseeder.berlioz.util.FileUtils;
+import org.pageseeder.berlioz.flint.util.Files;
 import org.pageseeder.berlioz.util.ISO8601;
 import org.pageseeder.flint.IndexBatch;
 import org.pageseeder.flint.IndexException;
@@ -144,7 +144,7 @@ public class AsynchronousIndexer implements Runnable, XMLWritable {
       for (File file : files.keySet()) {
         xml.openElement("file");
         try {
-          xml.attribute("path", '/'+FileUtils.path(root, file));
+          xml.attribute("path", '/'+Files.path(root, file));
         } catch (IllegalArgumentException ex) {
           xml.attribute("path", file.getAbsolutePath());
         }

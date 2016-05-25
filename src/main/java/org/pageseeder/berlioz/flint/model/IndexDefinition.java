@@ -153,7 +153,7 @@ public class IndexDefinition implements XMLWritable {
         Files.walkFileTree(root.toPath(), new FileVisitor<Path>() {
           @Override
           public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-            String path = FileUtils.path(root, dir.toFile());
+            String path = org.pageseeder.berlioz.flint.util.Files.path(root, dir.toFile());
             if (path != null && pattern.matcher('/' + path).matches()) {
               candidates.add(dir.toFile());
               return FileVisitResult.SKIP_SUBTREE;

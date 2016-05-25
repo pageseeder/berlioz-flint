@@ -23,7 +23,6 @@ import org.pageseeder.berlioz.GlobalSettings;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexDefinition;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
-import org.pageseeder.berlioz.util.FileUtils;
 import org.pageseeder.berlioz.util.Pair;
 import org.pageseeder.flint.IndexException;
 import org.pageseeder.flint.IndexJob.Priority;
@@ -188,7 +187,7 @@ public class FolderWatcher {
       }
     }
     // no index, check the configs then
-    String path = '/' + FileUtils.path(GlobalSettings.getRepository(), file);
+    String path = '/' + org.pageseeder.berlioz.flint.util.Files.path(GlobalSettings.getRepository(), file);
     for (IndexDefinition def : config.listDefinitions()) {
       String name = def.findIndexName(path);
       if (name != null) {
