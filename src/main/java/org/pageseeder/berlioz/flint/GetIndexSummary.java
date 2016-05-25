@@ -30,6 +30,7 @@ import org.pageseeder.berlioz.content.ContentRequest;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexDefinition;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
+import org.pageseeder.berlioz.flint.util.Files;
 import org.pageseeder.berlioz.util.FileUtils;
 import org.pageseeder.berlioz.util.ISO8601;
 import org.pageseeder.flint.IndexException;
@@ -67,7 +68,7 @@ public final class GetIndexSummary extends IndexGenerator implements Cacheable {
   private void indexToXML(IndexMaster index, boolean includeFields, XMLWriter xml) throws IOException {
     xml.openElement("index");
     xml.attribute("name", index.getIndex().getIndexID());
-    xml.attribute("content", '/' + FileUtils.path(GlobalSettings.getRepository(), index.getContent()));
+    xml.attribute("content", '/' + Files.path(GlobalSettings.getRepository(), index.getContent()));
     IndexReader reader = null;
     try {
       reader = index.grabReader();

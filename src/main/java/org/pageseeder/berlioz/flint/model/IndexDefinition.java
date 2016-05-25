@@ -16,7 +16,6 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.pageseeder.berlioz.util.FileUtils;
 import org.pageseeder.xmlwriter.XMLWritable;
 import org.pageseeder.xmlwriter.XMLWriter;
 import org.slf4j.Logger;
@@ -153,7 +152,7 @@ public class IndexDefinition implements XMLWritable {
         Files.walkFileTree(root.toPath(), new FileVisitor<Path>() {
           @Override
           public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-            String path = FileUtils.path(root, dir.toFile());
+            String path = org.pageseeder.berlioz.flint.util.Files.path(root, dir.toFile());
             if (path != null && pattern.matcher('/' + path).matches()) {
               candidates.add(dir.toFile());
               return FileVisitResult.SKIP_SUBTREE;
