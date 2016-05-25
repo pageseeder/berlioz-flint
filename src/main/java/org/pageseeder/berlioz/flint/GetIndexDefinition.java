@@ -30,8 +30,8 @@ import org.pageseeder.berlioz.content.ContentGenerator;
 import org.pageseeder.berlioz.content.ContentRequest;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexDefinition;
-import org.pageseeder.berlioz.flint.util.Files;
 import org.pageseeder.berlioz.flint.util.GeneratorErrors;
+import org.pageseeder.berlioz.util.FileUtils;
 import org.pageseeder.berlioz.util.MD5;
 import org.pageseeder.xmlwriter.XMLWriter;
 
@@ -65,7 +65,7 @@ public final class GetIndexDefinition implements ContentGenerator, Cacheable {
       xml.openElement("content-folders");
       try {
         for (File root : roots) {
-          String path = '/'+Files.path(GlobalSettings.getRepository(), root);
+          String path = '/'+FileUtils.path(GlobalSettings.getRepository(), root);
           xml.openElement("content-folder");
           xml.attribute("index", def.findIndexName(path));
           xml.attribute("path",  path);

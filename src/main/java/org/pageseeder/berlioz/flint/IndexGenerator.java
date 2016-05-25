@@ -17,10 +17,8 @@ import java.util.List;
 import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.content.ContentGenerator;
 import org.pageseeder.berlioz.content.ContentRequest;
-import org.pageseeder.berlioz.content.ContentStatus;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
-import org.pageseeder.berlioz.flint.util.GeneratorErrors;
 import org.pageseeder.flint.MultipleIndexReader;
 import org.pageseeder.flint.api.Index;
 import org.pageseeder.xmlwriter.XMLWriter;
@@ -34,36 +32,29 @@ public abstract class IndexGenerator implements ContentGenerator {
   public void process(ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String name = req.getParameter(INDEX_PARAMETER);
     if (name == null) {
-      IndexMaster master = FlintConfig.get().getMaster();
-      if (master == null) {
-        GeneratorErrors.error(req, xml, "config", "No valid was index found!", ContentStatus.INTERNAL_SERVER_ERROR);
-      } else {
-        processSingle(master, req, xml);
-      }
+      this.processSingle(FlintConfig.get().getMaster(), req, xml);
     } else {
       ArrayList<IndexMaster> indexes = new ArrayList<IndexMaster>();
       for (String aname : name.split(",")) {
-        IndexMaster amaster = FlintConfig.get().getMaster(aname.trim());
+        IndexMaster amaster = FlintConfig.get().getMaster(aname);
         if (amaster == null) continue;
         indexes.add(amaster);
       }
       if (indexes.size() == 1)
-        processSingle(indexes.get(0), req, xml);
+        this.processSingle(indexes.get(0), req, xml);
       else
-        processMultiple(indexes, req, xml);
+        this.processMultiple(indexes, req, xml);
     }
   }
 
   public String buildIndexEtag(ContentRequest req) {
     String names = req.getParameter(INDEX_PARAMETER);
     FlintConfig config = FlintConfig.get();
-    if (names == null) {
-      IndexMaster master = config.getMaster();
-      return master == null ? null : String.valueOf(master.lastModified());
-    }
+    if (names == null)
+       return String.valueOf(config.getMaster().lastModified());
     StringBuilder etag = new StringBuilder();
     for (String name : names.split(",")) {
-      IndexMaster master = config.getMaster(name.trim());
+      IndexMaster master = config.getMaster(name);
       if (master != null) {
         etag.append(name).append('-').append(master.lastModified());
       }

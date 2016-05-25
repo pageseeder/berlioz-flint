@@ -20,7 +20,6 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.pageseeder.berlioz.flint.util.FileFilters;
-import org.pageseeder.berlioz.flint.util.Files;
 import org.pageseeder.berlioz.util.FileUtils;
 import org.pageseeder.berlioz.util.MD5;
 import org.pageseeder.flint.IndexException;
@@ -354,7 +353,7 @@ public final class IndexMaster extends LocalIndexConfig {
   }
   
   public String fileToPath(File f) {
-    String path = Files.path(_contentRoot, f);
+    String path = FileUtils.path(_contentRoot, f);
     return path == null ? f.getAbsolutePath() : '/'+path.replace('\\', '/').replaceFirst("\\.(psml|PSML)$", "");
   }
   
