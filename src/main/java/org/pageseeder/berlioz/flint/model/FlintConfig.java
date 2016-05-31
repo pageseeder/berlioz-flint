@@ -19,6 +19,7 @@ package org.pageseeder.berlioz.flint.model;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -182,17 +183,25 @@ public class FlintConfig {
     }
     // load index definitions
     String types = GlobalSettings.get("flint.index.types", "default");
-    for (String type : types.split(",")) {
+    types_loop: for (String type : types.split(",")) {
       String indexName  = GlobalSettings.get("flint.index."+type+".name", DEFAULT_INDEX_NAME);
       String path       = GlobalSettings.get("flint.index."+type+".path", DEFAULT_CONTENT_LOCATION);
+      String excludes   = GlobalSettings.get("flint.index."+type+".excludes");
       File template = new File(ixml, GlobalSettings.get("flint.index."+type+".template", indexName+".xsl"));
       IndexDefinition def;
       try {
-        def = new IndexDefinition(type, indexName, path, template);
+        def = new IndexDefinition(type, indexName, path, excludes == null ? null : Arrays.asList(excludes.split(",")), template);
         LOGGER.debug("New index config for {} with index name {}, path {} and template {}", type, indexName, path, template.getAbsolutePath());
       } catch (InvalidIndexDefinitionException ex) {
         LOGGER.warn("Ignoring invalid index definition {}: {}", type, ex.getMessage());
         continue;
+      }
+      // check for clashes
+      for (IndexDefinition existing : this.indexConfigs.values()) {
+        if (def.indexNameClash(existing)) {
+          LOGGER.warn("Ignoring invalid index definition {} as it clashes with definition {}", type, existing.getName());
+          continue types_loop;
+        }
       }
       // autosuggests
       loadAutoSuggests(def);
@@ -313,8 +322,20 @@ public class FlintConfig {
         String fields  = GlobalSettings.get(propPrefix+autosuggest+".fields");
         String terms   = GlobalSettings.get(propPrefix+autosuggest+".terms", "false");
         String rfields = GlobalSettings.get(propPrefix+autosuggest+".result-fields");
+        String weight = GlobalSettings.get(propPrefix+autosuggest+".weight", "");
         if (fields != null) {
-          def.addAutoSuggest(autosuggest, fields, terms, rfields);
+          Map<String, Float> weights = new HashMap<>();
+          for (String w : weight.split(",")) {
+            String[] parts = w.split(":");
+            if (parts.length == 2) {
+              try {
+                weights.put(parts[0], Float.valueOf(parts[1]));
+              } catch (NumberFormatException ex) {
+                LOGGER.error("Autosuggeset {}: ignoring invalid weight for field {}: not a number! ()", autosuggest, parts[0], parts[1]);
+              }
+            }
+          }
+          def.addAutoSuggest(autosuggest, fields, terms, rfields, weights);
         } else {
           LOGGER.warn("Ignoring invalid autosuggest definition for {}: fields {}, terms {}, result fields {}", autosuggest, fields, terms, rfields);
         }

@@ -128,7 +128,7 @@ public final class IndexMaster extends LocalIndexConfig {
       if (existing == null || !existing.isCurrent(this._manager)) {
         try {
           if (existing != null) clearAutoSuggest(name, existing);
-          return createAutoSuggest(name, terms, fields, min, resultFields);
+          return createAutoSuggest(name, terms, fields, min, resultFields, null);
         } catch (IndexException | IOException ex) {
           LOGGER.error("Failed to create autosuggest {}", name, ex);
           return null;
@@ -148,7 +148,8 @@ public final class IndexMaster extends LocalIndexConfig {
         if (asd != null) {
           try {
             if (existing != null) clearAutoSuggest(name, existing);
-            return createAutoSuggest(name, asd.useTerms(), asd.getSearchFields(), asd.minChars(), asd.getResultFields());
+            return createAutoSuggest(name, asd.useTerms(), asd.getSearchFields(),
+                asd.minChars(), asd.getResultFields(), asd.getWeights());
           } catch (IndexException | IOException ex) {
             LOGGER.error("Failed to create autosuggest {}", name, ex);
             return null;
@@ -261,7 +262,8 @@ public final class IndexMaster extends LocalIndexConfig {
     return MD5.hash(name.toString()).toLowerCase();
   }
 
-  private AutoSuggest createAutoSuggest(String name, boolean terms, Collection<String> fields, int min, Collection<String> resultFields) throws IndexException, IOException {
+  private AutoSuggest createAutoSuggest(String name, boolean terms, Collection<String> fields,
+      int min, Collection<String> resultFields, Map<String, Float> weights) throws IndexException, IOException {
     // build name
     String autosuggestIndexName = this._name+"_"+name+"_autosuggest";
     // create folder
@@ -275,6 +277,7 @@ public final class IndexMaster extends LocalIndexConfig {
             .minChars(min)
             .useTerms(terms)
             .searchFields(fields)
+            .weights(weights)
             .resultFields(resultFields);
     // build it
     AutoSuggest as = aBuilder.build();

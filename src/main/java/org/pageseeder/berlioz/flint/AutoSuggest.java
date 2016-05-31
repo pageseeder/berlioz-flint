@@ -29,27 +29,6 @@ import org.pageseeder.xmlwriter.XMLWriter;
 @Beta
 public final class AutoSuggest extends IndexGenerator {
 //  private static final Logger LOGGER = LoggerFactory.getLogger(Autosuggest.class);
-//
-//  private static final ObjectBuilder DOCUMENT_BUILDER = new ObjectBuilder() {
-//    @Override
-//    public Serializable documentToObject(Document document) {
-//      XMLWriter xml = new XMLStringWriter(false);
-//      try {
-//        xml.openElement("document");
-//        for (IndexableField field : document.getFields()) {
-//          xml.openElement("field");
-//          xml.attribute("name", field.name());
-//          xml.writeText(field.stringValue());
-//          xml.closeElement();
-//        }
-//        xml.closeElement();
-//      } catch (IOException ex) {
-//        // should not happen, internal writer
-//        return "<error>Failed to write document as XML</error>";
-//      }
-//      return xml.toString();
-//    }
-//  };
 
   @Override
   public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
@@ -110,6 +89,6 @@ public final class AutoSuggest extends IndexGenerator {
 
   @Override
   public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-    GeneratorErrors.error(req, xml, "forbidden", "Cannnot autouggest on multiple indexes yet", ContentStatus.BAD_REQUEST);
+    GeneratorErrors.error(req, xml, "forbidden", "Cannnot autosuggest on multiple indexes yet", ContentStatus.BAD_REQUEST);
   }
 }
