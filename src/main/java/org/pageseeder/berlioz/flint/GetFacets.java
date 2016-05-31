@@ -54,6 +54,7 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
     StringBuilder etag = new StringBuilder();
     etag.append(req.getParameter("base", "")).append('%');
     etag.append(req.getParameter("facets", "")).append('%');
+    etag.append(req.getParameter("max-number", "20")).append('%');
     etag.append(buildIndexEtag(req));
     return MD5.hash(etag.toString());
   }
@@ -62,6 +63,7 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
   public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String base = req.getParameter("base", "");
     String facets = req.getParameter("facets", "");
+    int maxNumber = req.getIntParameter("max-number", 20);
     if (facets.isEmpty() && base.isEmpty()) {
       xml.emptyElement("facets");
       return;
@@ -78,8 +80,8 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
     try {
       IndexManager manager = FlintConfig.get().getManager();
       List<FieldFacet> facetsList = query == null ?
-            Facets.getFacets(manager, facets.isEmpty() ? null : Arrays.asList(facets.split(",")), 10, theIndexes) :
-            Facets.getFacets(manager, Arrays.asList(facets.split(",")), 10, query, theIndexes);
+            Facets.getFacets(manager, facets.isEmpty() ? null : Arrays.asList(facets.split(",")), maxNumber, theIndexes) :
+            Facets.getFacets(manager, Arrays.asList(facets.split(",")), maxNumber, query, theIndexes);
       this.outputResults(base, facetsList, xml);
     } catch (IndexException ex) {
       LOGGER.warn("Fail to retrieve search result using query: {}",
@@ -91,6 +93,7 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
   public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String base = req.getParameter("base", "");
     String facets = req.getParameter("facets", "");
+    int maxNumber = req.getIntParameter("max-number", 20);
     if (facets.isEmpty() && base.isEmpty()) {
       xml.emptyElement("facets");
       return;
@@ -102,7 +105,7 @@ public final class GetFacets extends IndexGenerator implements Cacheable {
     }
     IndexManager manager = FlintConfig.get().getManager();
     try {
-      List<FieldFacet> facetsList = Facets.getFacets(manager, facets.isEmpty() ? null : Arrays.asList(facets.split(",")), 10, query, index.getIndex());
+      List<FieldFacet> facetsList = Facets.getFacets(manager, facets.isEmpty() ? null : Arrays.asList(facets.split(",")), maxNumber, query, index.getIndex());
       this.outputResults(base, facetsList, xml);
     } catch (IndexException ex) {
       LOGGER.warn("Fail to retrieve search result using query: {}",

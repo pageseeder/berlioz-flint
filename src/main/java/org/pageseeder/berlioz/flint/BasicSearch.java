@@ -67,6 +67,7 @@ public class BasicSearch extends IndexGenerator {
   @Override
   public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String facets = req.getParameter("facets", "");
+    int maxNumber = req.getIntParameter("max-facets", 20);
     SearchQuery query = buildQuery(req);
     if (query == null) {
       xml.emptyElement("index-search");
@@ -80,7 +81,7 @@ public class BasicSearch extends IndexGenerator {
     try {
       IndexManager manager = FlintConfig.get().getManager();
       SearchResults results = manager.query(theIndexes, query, paging);
-      List<FieldFacet> facetsList = Facets.getFacets(manager, Arrays.asList(facets.split(",")), 10, query.toQuery(), theIndexes);
+      List<FieldFacet> facetsList = Facets.getFacets(manager, Arrays.asList(facets.split(",")), maxNumber, query.toQuery(), theIndexes);
       outputResults(query, results, facetsList, xml);
     } catch (IndexException ex) {
       LOGGER.warn("Fail to retrieve search result using query: {}",
@@ -91,6 +92,7 @@ public class BasicSearch extends IndexGenerator {
   @Override
   public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String facets = req.getParameter("facets", "");
+    int maxNumber = req.getIntParameter("max-facets", 20);
     SearchQuery query = buildQuery(req);
     if (query == null) {
       xml.emptyElement("index-search");
@@ -100,7 +102,7 @@ public class BasicSearch extends IndexGenerator {
     IndexManager manager = FlintConfig.get().getManager();
     try {
       SearchResults results = index.query(query, paging);
-      List<FieldFacet> facetsList = Facets.getFacets(manager, Arrays.asList(facets.split(",")), 10, query.toQuery(), index.getIndex());
+      List<FieldFacet> facetsList = Facets.getFacets(manager, Arrays.asList(facets.split(",")), maxNumber, query.toQuery(), index.getIndex());
       outputResults(query, results, facetsList, xml);
     } catch (IndexException ex) {
       LOGGER.warn("Fail to retrieve search result using query: {}",
