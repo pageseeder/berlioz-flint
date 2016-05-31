@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.WatchEvent.Kind;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -111,17 +112,19 @@ public class FolderWatcher {
   private void fileChanged(File file) {
     LOGGER.debug("File changed {}", file);
     FlintConfig config = FlintConfig.get();
-    IndexMaster destination = getDestination(file, config);
+    Collection<IndexMaster> destinations = getDestinations(file, config);
     // index it if there's a destination
-    if (destination != null) {
+    if (!destinations.isEmpty()) {
       // delayed indexing?
       if (this._delayedIndexer == null) {
         LOGGER.debug("Re-indexing file {}", file);
-        config.getManager().index(file.getAbsolutePath(), LocalFileContentType.SINGLETON, destination.getIndex(),
-                                  new Requester("Berlioz File Watcher"), Priority.HIGH, null);
+        for (IndexMaster destination : destinations)
+          config.getManager().index(file.getAbsolutePath(), LocalFileContentType.SINGLETON, destination.getIndex(),
+                                    new Requester("Berlioz File Watcher"), Priority.HIGH, null);
       } else {
         LOGGER.debug("Delay re-indexing of file {}", file);
-        this._delayedIndexer.index(destination.getIndex(), file.getAbsolutePath());
+        for (IndexMaster destination : destinations)
+          this._delayedIndexer.index(destination.getIndex(), file.getAbsolutePath());
       }
     }
   }
@@ -129,19 +132,26 @@ public class FolderWatcher {
   private void folderAdded(File file) {
     LOGGER.debug("Folder added {}", file);
     FlintConfig config = FlintConfig.get();
-    IndexMaster destination = getDestination(file, config);
+    Collection<IndexMaster> destinations = getDestinations(file, config);
     // index it if there's a destination
-    if (destination != null) {
+    if (!destinations.isEmpty()) {
       // delayed indexing?
       if (this._delayedIndexer == null) {
         LOGGER.debug("Re-indexing file {}", file);
         Requester req = new Requester("Berlioz File Watcher");
-        for (File afile : file.listFiles())
-          config.getManager().index(afile.getAbsolutePath(), LocalFileContentType.SINGLETON, destination.getIndex(), req, Priority.HIGH, null);
+        for (File afile : file.listFiles()) {
+          for (IndexMaster destination : destinations) {
+            config.getManager().index(afile.getAbsolutePath(), LocalFileContentType.SINGLETON,
+                                      destination.getIndex(), req, Priority.HIGH, null);
+          }
+        }
       } else {
         LOGGER.debug("Delay re-indexing of file {}", file);
-        for (File afile : file.listFiles())
-          this._delayedIndexer.index(destination.getIndex(), afile.getAbsolutePath());
+        for (File afile : file.listFiles()) {
+          for (IndexMaster destination : destinations) {
+            this._delayedIndexer.index(destination.getIndex(), afile.getAbsolutePath());
+          }
+        }
       }
     }
   }
@@ -149,9 +159,9 @@ public class FolderWatcher {
   private void folderDeleted(File file) {
     LOGGER.debug("Folder deleted {}", file);
     FlintConfig config = FlintConfig.get();
-    IndexMaster destination = getDestination(file, config);
+    Collection<IndexMaster> destinations = getDestinations(file, config);
     // index it if there's a destination
-    if (destination != null) {
+    for (IndexMaster destination : destinations) {
       Collection<File> toReIndex = new ArrayList<File>();
       // find all files located in there
       try {
@@ -179,11 +189,12 @@ public class FolderWatcher {
     }
   }
 
-  private IndexMaster getDestination(File file, FlintConfig config) {
+  private Collection<IndexMaster> getDestinations(File file, FlintConfig config) {
+    List<IndexMaster> indexes = new ArrayList<>();
     // find which index that file is in
     for (IndexMaster master : config.listIndexes()) {
       if (master.isInIndex(file)) {
-        return master;
+        indexes.add(master);
       }
     }
     // no index, check the configs then
@@ -192,10 +203,12 @@ public class FolderWatcher {
       String name = def.findIndexName(path);
       if (name != null) {
         // create new index
-        return config.getMaster(name);
+        IndexMaster m = config.getMaster(name);
+        if (m != null && !indexes.contains(m))
+          indexes.add(m);
       }
     }
-    return null;
+    return indexes;
   }
   /**
    * Delayed indexing thread.
