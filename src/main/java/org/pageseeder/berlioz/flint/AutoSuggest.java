@@ -12,7 +12,9 @@ package org.pageseeder.berlioz.flint;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.Beta;
@@ -28,7 +30,7 @@ import org.pageseeder.xmlwriter.XMLWriter;
  */
 @Beta
 public final class AutoSuggest extends IndexGenerator {
-//  private static final Logger LOGGER = LoggerFactory.getLogger(Autosuggest.class);
+//  private static final Logger LOGGER = LoggerFactory.getLogger(AutoSuggest.class);
 
   @Override
   public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
@@ -38,6 +40,7 @@ public final class AutoSuggest extends IndexGenerator {
     String results = req.getParameter("results", "10");
     boolean terms  = "true".equals(req.getParameter("terms", "false"));
     String rfields = req.getParameter("return-fields", req.getParameter("return-field"));
+    String weight  = req.getParameter("weight", "");
     // validate fields
     if (term == null) {
       GeneratorErrors.noParameter(req, xml, "term");
@@ -52,7 +55,20 @@ public final class AutoSuggest extends IndexGenerator {
     }
     org.pageseeder.flint.util.AutoSuggest suggestor;
     if (name == null) {
-      suggestor = index.getAutoSuggest(Arrays.asList(fields.split(",")), terms, 2, rfields == null ? null : Arrays.asList(rfields.split(",")));
+      // compute weights
+      Map<String, Float> weights = new HashMap<>();
+      for (String w : weight.split(",")) {
+        String[] parts = w.split(":");
+        if (parts.length == 2) {
+          try {
+            weights.put(parts[0], Float.valueOf(parts[1]));
+          } catch (NumberFormatException ex) {
+            GeneratorErrors.invalidParameter(req, xml, "weight");
+            return;
+          }
+        }
+      }
+      suggestor = index.getAutoSuggest(Arrays.asList(fields.split(",")), terms, 2, rfields == null ? null : Arrays.asList(rfields.split(",")), weights);
       if (suggestor == null) {
         GeneratorErrors.error(req, xml, "server", "Failed to create autosuggest", ContentStatus.INTERNAL_SERVER_ERROR);
         return;

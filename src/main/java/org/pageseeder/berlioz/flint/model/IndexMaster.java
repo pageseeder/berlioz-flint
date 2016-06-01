@@ -119,7 +119,11 @@ public final class IndexMaster extends LocalIndexConfig {
     return this._manager.getLastTimeUsed(this._index);
   }
 
-  public AutoSuggest getAutoSuggest(List<String> fields, boolean terms, int min, List<String> resultFields) {
+  public IndexDefinition getIndexDefinition() {
+    return this._def;
+  }
+
+  public AutoSuggest getAutoSuggest(List<String> fields, boolean terms, int min, List<String> resultFields, Map<String, Float> weights) {
     String name = createAutoSuggestTempName(fields, terms, min, resultFields);
     // block the list of suggesters so another thread doesn't try to create the same one
     synchronized (this._autosuggests) {
@@ -128,7 +132,7 @@ public final class IndexMaster extends LocalIndexConfig {
       if (existing == null || !existing.isCurrent(this._manager)) {
         try {
           if (existing != null) clearAutoSuggest(name, existing);
-          return createAutoSuggest(name, terms, fields, min, resultFields, null);
+          return createAutoSuggest(name, terms, fields, min, resultFields, weights);
         } catch (IndexException | IOException ex) {
           LOGGER.error("Failed to create autosuggest {}", name, ex);
           return null;
