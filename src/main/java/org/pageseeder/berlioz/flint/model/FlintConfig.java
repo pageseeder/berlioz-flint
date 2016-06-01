@@ -38,6 +38,7 @@ import org.pageseeder.flint.api.ContentTranslator;
 import org.pageseeder.flint.api.ContentTranslatorFactory;
 import org.pageseeder.flint.content.SourceForwarder;
 import org.pageseeder.flint.local.LocalFileContentFetcher;
+import org.pageseeder.flint.util.TemplatesCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -277,6 +278,9 @@ public class FlintConfig {
   }
 
   public void reloadTemplate(String defname) {
+    // clear templates cache
+    TemplatesCache.clear();
+    // remove template from this definition
     IndexDefinition def = getIndexDefinition(defname);
     if (def != null) {
       // loop through index folders
