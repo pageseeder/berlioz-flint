@@ -1,6 +1,7 @@
 package org.pageseeder.berlioz.flint.model;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Collection;
@@ -50,6 +51,7 @@ public final class IndexMaster extends LocalIndexConfig {
   private static final Logger LOGGER = LoggerFactory.getLogger(IndexMaster.class);
   private final IndexManager _manager;
   private final String _name;
+  private final FileFilter _indexingFileFilter;
   private final File _indexRoot;
   private final File _contentRoot;
   private final LocalIndex _index;
@@ -76,6 +78,7 @@ public final class IndexMaster extends LocalIndexConfig {
     this._index = new LocalIndex(this);
     this._index.setTemplate(extension, def.getTemplate().toURI());
     this._def = def;
+    this._indexingFileFilter = def.buildFileFilter(this._contentRoot);
     // create autosuggests
     for (String an : this._def.listAutoSuggestNames()) {
       getAutoSuggest(an);
@@ -121,6 +124,10 @@ public final class IndexMaster extends LocalIndexConfig {
 
   public IndexDefinition getIndexDefinition() {
     return this._def;
+  }
+
+  public FileFilter getIndexingFileFilter() {
+    return this._indexingFileFilter;
   }
 
   public AutoSuggest getAutoSuggest(List<String> fields, boolean terms, int min, List<String> resultFields, Map<String, Float> weights) {

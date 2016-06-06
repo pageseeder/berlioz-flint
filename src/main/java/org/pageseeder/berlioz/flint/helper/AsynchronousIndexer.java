@@ -13,7 +13,6 @@ import org.apache.lucene.index.IndexReader;
 import org.pageseeder.berlioz.GlobalSettings;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
-import org.pageseeder.berlioz.flint.util.FileFilters;
 import org.pageseeder.berlioz.flint.util.Files;
 import org.pageseeder.berlioz.util.ISO8601;
 import org.pageseeder.flint.IndexBatch;
@@ -109,7 +108,7 @@ public class AsynchronousIndexer implements Runnable, XMLWritable {
 
     // use local indexer
     this.indexer = new LocalIndexer(manager, this._index.getIndex());
-    this.indexer.setFileFilter(FileFilters.getPSMLFiles());
+    this.indexer.setFileFilter(this._index.getIndexingFileFilter());
     this.indexer.indexFolder(root, existing);
 
     // mark as finished

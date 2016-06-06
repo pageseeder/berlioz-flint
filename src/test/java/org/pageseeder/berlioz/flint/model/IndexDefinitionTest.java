@@ -1,6 +1,8 @@
 package org.pageseeder.berlioz.flint.model;
 
 import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -13,6 +15,12 @@ import org.pageseeder.berlioz.flint.model.IndexDefinition.InvalidIndexDefinition
 public class IndexDefinitionTest {
 
   private final static File VALID_TEMPLATE = new File("src/test/resources/template.xsl");
+
+  private final static String PSML_FOLDER_PATH = "psml";
+
+  private final static File PSML_FOLDER = new File(PSML_FOLDER_PATH);
+
+  private final static List<File> TEMP_FILES = new ArrayList<>();
   /**
    * Tests the {IndexDefinition} creator.
    */
@@ -75,6 +83,53 @@ public class IndexDefinitionTest {
     Assert.assertTrue(def.indexNameMatches("book-002"));
   }
 
+  /**
+   * Tests the {IndexDefinition#buildFileFilter} method.
+   */
+  @Test
+  public void testFileFilter() throws IOException {
+    try {
+      // build def
+      IndexDefinition def = new IndexDefinition("default", "index", PSML_FOLDER_PATH, null, VALID_TEMPLATE);
+      File root = def.buildContentRoot(PSML_FOLDER, "default");
+      // default is all PSML
+      FileFilter filter = def.buildFileFilter(root);
+      Assert.assertTrue(filter.accept(createTempFile(root, "test.psml")));
+      Assert.assertTrue(filter.accept(createTempFile(root, "folder/test.psml")));
+      Assert.assertFalse(filter.accept(createTempFile(root, "test.xml")));
+      // set include/exclude
+      def.setIndexingFilesRegex("test/(.*)\\.psml", "test/notme\\.psml");
+      filter = def.buildFileFilter(root);
+      Assert.assertFalse(filter.accept(createTempFile(root, "test.psml")));
+      Assert.assertTrue(filter.accept(createTempFile(root, "test/test.psml")));
+      Assert.assertTrue(filter.accept(createTempFile(root, "test/subfolder/test.psml")));
+      Assert.assertFalse(filter.accept(createTempFile(root, "test/test.xml")));
+      Assert.assertFalse(filter.accept(createTempFile(root, "test/notme.xml")));
+      // set include/exclude
+      def.setIndexingFilesRegex(null, ".*?\\.xml");
+      filter = def.buildFileFilter(root);
+      Assert.assertTrue(filter.accept(createTempFile(root, "test.psml")));
+      Assert.assertTrue(filter.accept(createTempFile(root, "test.zip")));
+      Assert.assertFalse(filter.accept(createTempFile(root, "test.xml")));
+    } finally {
+      clearTempFiles();
+    }
+  }
+
+  private File createTempFile(File parent, String name) throws IOException {
+    File f = new File(parent, name);
+    f.getParentFile().mkdirs();
+    f.createNewFile();
+    TEMP_FILES.add(f);
+    return f;
+  }
+
+  private void clearTempFiles() {
+    for (File f : TEMP_FILES) {
+      f.delete();
+    }
+  }
+  
   /**
    * Tests the {IndexDefinition#extractName} method.
    */

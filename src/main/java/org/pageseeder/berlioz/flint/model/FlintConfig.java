@@ -204,6 +204,10 @@ public class FlintConfig {
           continue types_loop;
         }
       }
+      String regexInclude = GlobalSettings.get("flint.index."+type+".files.includes");
+      String regexExclude = GlobalSettings.get("flint.index."+type+".files.excludes");
+      // set filters
+      def.setIndexingFilesRegex(regexInclude, regexExclude);
       // autosuggests
       loadAutoSuggests(def);
       this.indexConfigs.put(type, def);

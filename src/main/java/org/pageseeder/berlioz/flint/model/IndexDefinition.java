@@ -1,6 +1,7 @@
 package org.pageseeder.berlioz.flint.model;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -17,6 +18,7 @@ import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.pageseeder.berlioz.flint.util.FileFilters;
 import org.pageseeder.xmlwriter.XMLWritable;
 import org.pageseeder.xmlwriter.XMLWriter;
 import org.slf4j.Logger;
@@ -47,6 +49,17 @@ public class IndexDefinition implements XMLWritable {
    * The content paths to exclude (static or dynamic)
    */
   private final List<String> _pathExcludes = new ArrayList<String>();
+
+  /**
+   * A regex matching the files to include when indexing
+   */
+  private String includeFilesRegex = null;
+
+  /**
+   * A regex matching the files to exclude when indexing
+   */
+  private String excludeFilesRegex = null;
+
   /**
    * the iXML template
    */
@@ -107,6 +120,11 @@ public class IndexDefinition implements XMLWritable {
     return asd;
   }
 
+  public void setIndexingFilesRegex(final String regexInclude, final String regexExclude) {
+    this.includeFilesRegex = regexInclude;
+    this.excludeFilesRegex = regexExclude;
+  }
+
   public Collection<String> listAutoSuggestNames() {
     return this._autosuggests.keySet();
   }
@@ -114,6 +132,27 @@ public class IndexDefinition implements XMLWritable {
   public AutoSuggestDefinition getAutoSuggest(String name) {
     assert name != null;
     return this._autosuggests.get(name);
+  }
+
+  public FileFilter buildFileFilter(final File root) {
+    // no regex ? just match PSML files then
+    if (this.includeFilesRegex != null || this.excludeFilesRegex != null) {
+      return new FileFilter() {
+        @Override
+        public boolean accept(File file) {
+          String path = org.pageseeder.berlioz.flint.util.Files.path(root, file);
+          // can't compute the path? means they are not related, don't index
+          if (path == null) return false;
+          // include
+          if (includeFilesRegex != null && !path.matches(includeFilesRegex)) return false;
+          // exclude
+          if (excludeFilesRegex != null && path.matches(excludeFilesRegex)) return false;
+          return true;
+        }
+      };
+    }
+    // default is all PSML files
+    return FileFilters.getPSMLFiles();
   }
 
   public boolean indexNameClash(IndexDefinition other) {
