@@ -39,7 +39,10 @@ import org.pageseeder.berlioz.flint.model.IndexMaster;
 import org.pageseeder.flint.IndexException;
 import org.pageseeder.flint.IndexManager;
 import org.pageseeder.flint.api.Index;
+import org.pageseeder.flint.catalog.Catalog;
+import org.pageseeder.flint.catalog.Catalogs;
 import org.pageseeder.flint.query.BasicQuery;
+import org.pageseeder.flint.query.PhraseParameter;
 import org.pageseeder.flint.query.SearchPaging;
 import org.pageseeder.flint.query.SearchParameter;
 import org.pageseeder.flint.query.SearchQuery;
@@ -68,7 +71,8 @@ public class BasicSearch extends IndexGenerator {
   public void processMultiple(Collection<IndexMaster> indexes, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String facets = req.getParameter("facets", "");
     int maxNumber = req.getIntParameter("max-facets", 20);
-    SearchQuery query = buildQuery(req);
+    // get first catalog as they should all have the same one
+    SearchQuery query = buildQuery(req, indexes.iterator().next().getCatalog());
     if (query == null) {
       xml.emptyElement("index-search");
       return;
@@ -93,7 +97,7 @@ public class BasicSearch extends IndexGenerator {
   public void processSingle(IndexMaster index, ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
     String facets = req.getParameter("facets", "");
     int maxNumber = req.getIntParameter("max-facets", 20);
-    SearchQuery query = buildQuery(req);
+    SearchQuery query = buildQuery(req, index.getCatalog());
     if (query == null) {
       xml.emptyElement("index-search");
       return;
@@ -110,12 +114,11 @@ public class BasicSearch extends IndexGenerator {
     }
   }
 
-  private SearchQuery buildQuery(ContentRequest req) {
+  private SearchQuery buildQuery(ContentRequest req, String catalog) {
     String field = req.getParameter("field", "fulltext");
     String typed = req.getParameter("term");
     if (typed == null) return null;
-    TermParameter term = new TermParameter(field, typed);
-    LOGGER.debug("Search in field {} for term {}", field, term);
+    // compute parameters
     List<SearchParameter> params = new ArrayList<SearchParameter>();
     String with = req.getParameter("with");
     if (with != null) {
@@ -129,7 +132,17 @@ public class BasicSearch extends IndexGenerator {
         }
       }
     }
-    BasicQuery<TermParameter> query = BasicQuery.newBasicQuery(term, params);
+    // check if we should tokenize
+    Catalog theCatalog = Catalogs.getCatalog(catalog);
+    boolean tokenize = theCatalog != null && theCatalog.isTokenizedForSearch(field);
+    BasicQuery<?> query;
+    if (tokenize) {
+      query = BasicQuery.newBasicQuery(new PhraseParameter(field, typed), params);
+      LOGGER.debug("Search in field {} for phrase {}", field, typed);
+    } else {
+      query = BasicQuery.newBasicQuery(new TermParameter(field, typed), params);
+      LOGGER.debug("Search in field {} for term {}", field, typed);
+    }
     query.setSort(new Sort(new SortField(req.getParameter("sort"), SortField.Type.SCORE)));
     return query;
   }

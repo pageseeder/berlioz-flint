@@ -1,7 +1,9 @@
 package org.pageseeder.berlioz.flint.helper;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,7 +17,6 @@ import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
 import org.pageseeder.berlioz.flint.util.Files;
 import org.pageseeder.berlioz.util.ISO8601;
-import org.pageseeder.flint.IndexBatch;
 import org.pageseeder.flint.IndexException;
 import org.pageseeder.flint.IndexManager;
 import org.pageseeder.flint.local.LocalIndexer;
@@ -25,7 +26,7 @@ import org.pageseeder.xmlwriter.XMLWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class AsynchronousIndexer implements Runnable, XMLWritable {
+public class AsynchronousIndexer implements Runnable, XMLWritable, FileFilter {
 
   /**
    * private logger
@@ -36,20 +37,63 @@ public class AsynchronousIndexer implements Runnable, XMLWritable {
 
   private String folder = null;
 
+  private Date modifiedAfter = null;
+
+  private String pathRegex = null;
+
   private long started = -1;
 
   private boolean done = false;
 
   private LocalIndexer indexer = null;
 
+  private boolean useIndexDate = true;
+
   private final static ExecutorService threads = Executors.newCachedThreadPool();
 
   private final static Map<String, AsynchronousIndexer> indexers = new ConcurrentHashMap<>();
-  
+
+  /**
+   * Create a new indexer for the index provided.
+   * @param index
+   */
   public AsynchronousIndexer(IndexMaster index) {
     this._index = index;
   }
 
+  /**
+   * Set a date that is the lower limit for the last modified date of the files to index.
+   * 
+   * @param modifiedAfter the date
+   */
+  public void setModifiedAfter(Date modifiedAfter) {
+    this.modifiedAfter = modifiedAfter;
+  }
+
+  /**
+   * Set a Regex that the path of the files to index must match.
+   * It is relative to the folder specified.
+   * 
+   * @param regex the regular expression
+   */
+  public void setPathRegex(String regex) {
+    if (regex == null || regex.isEmpty()) this.pathRegex = null;
+    else this.pathRegex = regex.replaceFirst("^/", ""); // remove first '/'
+  }
+
+  /**
+   * If the index last modified date is used to select which files to index
+   * @param useIndxDate whether or not to use index last modif date
+   */
+  public void setUseIndexDate(boolean useIndxDate) {
+    this.useIndexDate = useIndxDate;
+  }
+  
+  /**
+   * the root folder of the files to index.
+   * 
+   * @param afolder the folder, relative to the index's content root
+   */
   public void setFolder(String afolder) {
     this.folder = afolder;
   }
@@ -89,7 +133,10 @@ public class AsynchronousIndexer implements Runnable, XMLWritable {
         String src = doc.get("_src");
         String path = doc.get("_path");
         String lm   = doc.get("_lastmodified");
-        if (src != null && path != null && path.startsWith(afolder) && lm != null) {
+        // folder and regex
+        if (lm != null && src != null && path != null &&
+            path.startsWith(afolder) && 
+            (this.pathRegex == null || path.substring(afolder.length()).matches(this.pathRegex))) {
           try {
             existing.put(new File(src), Long.valueOf(lm));
           } catch (NumberFormatException ex) {
@@ -108,19 +155,31 @@ public class AsynchronousIndexer implements Runnable, XMLWritable {
 
     // use local indexer
     this.indexer = new LocalIndexer(manager, this._index.getIndex());
-    this.indexer.setFileFilter(this._index.getIndexingFileFilter());
+    this.indexer.setFileFilter(this);
+    this.indexer.setUseIndexDate(this.useIndexDate);
     this.indexer.indexFolder(root, existing);
 
     // mark as finished
     this.done = true;
   }
 
-  public Map<File, Action> getFiles() {
-    return this.indexer == null ? null : this.indexer.getIndexedFiles();
-  }
-
-  public IndexBatch getBatch() {
-    return this.indexer == null ? null : this.indexer.getBatch();
+  /**
+   * File filter method
+   */
+  @Override
+  public boolean accept(File file) {
+    // check with index's file filter
+    if (!this._index.getIndexingFileFilter().accept(file))
+      return false;
+    // now check with regex
+    if (this.pathRegex != null) {
+      File root = new File(this._index.getContent(), this.folder == null ? "/" : this.folder);
+      String path = Files.path(root, file);
+      if (path != null && !path.matches(this.pathRegex))
+        return false;
+    }
+    // last check is date
+    return this.modifiedAfter == null || file.lastModified() > this.modifiedAfter.getTime();
   }
 
   @Override

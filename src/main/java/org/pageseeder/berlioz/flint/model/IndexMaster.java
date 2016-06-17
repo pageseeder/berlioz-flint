@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -14,6 +15,7 @@ import javax.xml.transform.TransformerException;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
@@ -29,6 +31,7 @@ import org.pageseeder.flint.IndexJob;
 import org.pageseeder.flint.IndexManager;
 import org.pageseeder.flint.api.Requester;
 import org.pageseeder.flint.content.DeleteRule;
+import org.pageseeder.flint.index.FieldBuilder;
 import org.pageseeder.flint.local.LocalFileContent;
 import org.pageseeder.flint.local.LocalIndex;
 import org.pageseeder.flint.local.LocalIndexConfig;
@@ -77,6 +80,7 @@ public final class IndexMaster extends LocalIndexConfig {
     this._indexRoot = index;
     this._index = new LocalIndex(this);
     this._index.setTemplate(extension, def.getTemplate().toURI());
+    this._index.setCatalog(def.getName());
     this._def = def;
     this._indexingFileFilter = def.buildFileFilter(this._contentRoot);
     // create autosuggests
@@ -103,6 +107,14 @@ public final class IndexMaster extends LocalIndexConfig {
 
   public String getName() {
     return this._name;
+  }
+
+  /**
+   * Use definition name as catalog (one catalog per definition).
+   * @return the catalog name
+   */
+  public String getCatalog() {
+    return this._def.getName();
   }
 
   public void clear() {
@@ -366,7 +378,30 @@ public final class IndexMaster extends LocalIndexConfig {
     }
     return params;
   }
-  
+
+  @Override
+  public Collection<IndexableField> getFields(File file) {
+    Collection<IndexableField> fields = new ArrayList<>();
+    if (file.exists()) {
+      try {
+        fields.add(buildField("_src", file.getCanonicalPath()));
+      } catch (IOException ex) {
+        LOGGER.error("Failed to compute canonical path for {}", file, ex);
+      }
+      fields.add(buildField("_path", fileToPath(file)));
+      fields.add(buildField("_lastmodified", String.valueOf(file.lastModified())));
+      fields.add(buildField("_creator", "berlioz"));
+    }
+    return fields;
+  }
+
+  private IndexableField buildField(String name, String value) {
+    // use filed builder as it will add the fields to the catalog
+    FieldBuilder builder = new FieldBuilder(getCatalog());
+    builder.store(true).name(name).value(value);
+    return builder.build();
+  }
+
   public String fileToPath(File f) {
     String path = Files.path(_contentRoot, f);
     return path == null ? f.getAbsolutePath() : '/'+path.replace('\\', '/').replaceFirst("\\.(psml|PSML)$", "");

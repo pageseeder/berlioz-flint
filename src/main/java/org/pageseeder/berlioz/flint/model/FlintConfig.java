@@ -36,6 +36,7 @@ import org.pageseeder.flint.IndexBatch;
 import org.pageseeder.flint.IndexManager;
 import org.pageseeder.flint.api.ContentTranslator;
 import org.pageseeder.flint.api.ContentTranslatorFactory;
+import org.pageseeder.flint.catalog.Catalogs;
 import org.pageseeder.flint.content.SourceForwarder;
 import org.pageseeder.flint.local.LocalFileContentFetcher;
 import org.pageseeder.flint.util.TemplatesCache;
@@ -62,6 +63,7 @@ public class FlintConfig {
   private static final Logger LOGGER = LoggerFactory.getLogger(FlintConfig.class);
   protected static final String DEFAULT_INDEX_NAME = "default";
   protected static final String DEFAULT_INDEX_LOCATION = "index";
+  protected static final String DEFAULT_CATALOG_LOCATION = "catalogs";
   protected static final String DEFAULT_CONTENT_LOCATION = "/psml/content";
   protected static final String DEFAULT_ITEMPLATES_LOCATION = "ixml";
   protected static final int DEFAULT_MAX_WATCH_FOLDERS = 100000;
@@ -140,7 +142,7 @@ public class FlintConfig {
       IndexMaster master = this.indexes.remove(name);
       this.manager.closeIndex(master.getIndex());
       // remove files
-      File root = new File(GlobalSettings.getRepository(), DEFAULT_INDEX_LOCATION + File.separator + name);
+      File root = new File(this._directory, name);
       if (root.exists() && root.isDirectory()) {
         for (File f : root.listFiles()) {
           f.delete();
@@ -153,6 +155,10 @@ public class FlintConfig {
   }
 
   private static FlintConfig buildDefaultConfig() {
+    // set catalog location
+    File catalogs = new File(GlobalSettings.getRepository(), DEFAULT_CATALOG_LOCATION);
+    Catalogs.setRoot(catalogs);
+    // create config
     File index = new File(GlobalSettings.getRepository(), DEFAULT_INDEX_LOCATION);
     File ixml  = new File(GlobalSettings.getRepository(), DEFAULT_ITEMPLATES_LOCATION);
     if (!index.exists()) {
@@ -218,6 +224,8 @@ public class FlintConfig {
    * Stop the watcher if there is one and the manager.
    */
   public final void stop() {
+    // save catalogs
+    Catalogs.saveAll();
     // stop watcher if there is one
     if (this.watcher != null)
       this.watcher.stop();

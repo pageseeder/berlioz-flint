@@ -97,7 +97,7 @@ public final class GenerateIXML extends IndexGenerator {
       xml.openElement("documents");
       try {
         // load documents
-        List<Document> docs = IndexParserFactory.getInstance().process(new InputSource(new StringReader(ixml)));
+        List<Document> docs = IndexParserFactory.getInstance().process(new InputSource(new StringReader(ixml)), null);
         for (Document doc : docs) {
           xml.openElement("document", true);
 
