@@ -398,7 +398,7 @@ public final class IndexMaster extends LocalIndexConfig {
   private IndexableField buildField(String name, String value) {
     // use filed builder as it will add the fields to the catalog
     FieldBuilder builder = new FieldBuilder(getCatalog());
-    builder.store(true).name(name).value(value);
+    builder.store(true).tokenize(false).name(name).value(value);
     return builder.build();
   }
 
