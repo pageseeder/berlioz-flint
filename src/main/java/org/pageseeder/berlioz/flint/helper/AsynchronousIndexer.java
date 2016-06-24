@@ -12,7 +12,6 @@ import java.util.concurrent.Executors;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
-import org.pageseeder.berlioz.GlobalSettings;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
 import org.pageseeder.berlioz.flint.util.Files;
@@ -119,7 +118,7 @@ public class AsynchronousIndexer implements Runnable, XMLWritable, FileFilter {
 
      // load existing documents
     IndexManager manager = FlintConfig.get().getManager();
-    Map<File, Long> existing = new HashMap<>();
+    Map<String, Long> existing = new HashMap<>();
     IndexReader reader;
     try {
       reader = manager.grabReader(this._index.getIndex());
@@ -138,7 +137,7 @@ public class AsynchronousIndexer implements Runnable, XMLWritable, FileFilter {
             path.startsWith(afolder) && 
             (this.pathRegex == null || path.substring(afolder.length()).matches(this.pathRegex))) {
           try {
-            existing.put(new File(src), Long.valueOf(lm));
+            existing.put(src, Long.valueOf(lm));
           } catch (NumberFormatException ex) {
             // ignore, should never happen anyway
           }
@@ -193,20 +192,20 @@ public class AsynchronousIndexer implements Runnable, XMLWritable, FileFilter {
       // batch
       BatchXMLWriter.batchToXML(this.indexer.getBatch(), xml);
       // files
-      Map<File, Action> files = this.indexer.getIndexedFiles();
+      Map<String, Action> files = this.indexer.getIndexedFiles();
       xml.openElement("files");
       xml.attribute("count", files.size());
-      File root = GlobalSettings.getRepository();
+      String root = this._index.getContent().getAbsolutePath();
       int max = 100;
       int current = 0;
-      for (File file : files.keySet()) {
+      for (String path : files.keySet()) {
         xml.openElement("file");
-        try {
-          xml.attribute("path", '/'+Files.path(root, file));
-        } catch (IllegalArgumentException ex) {
-          xml.attribute("path", file.getAbsolutePath());
+        if (path.startsWith(root)) {
+          xml.attribute("path", path.substring(root.length()));
+        } else {
+          xml.attribute("path", path);
         }
-        xml.attribute("action", files.get(file).name().toLowerCase());
+        xml.attribute("action", files.get(path).name().toLowerCase());
         xml.closeElement();
         if (current++ > max) break;
       }

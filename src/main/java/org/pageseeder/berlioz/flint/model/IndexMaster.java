@@ -22,7 +22,6 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.pageseeder.berlioz.flint.util.FileFilters;
 import org.pageseeder.berlioz.flint.util.Files;
 import org.pageseeder.berlioz.util.FileUtils;
 import org.pageseeder.berlioz.util.MD5;
@@ -35,7 +34,6 @@ import org.pageseeder.flint.index.FieldBuilder;
 import org.pageseeder.flint.local.LocalFileContent;
 import org.pageseeder.flint.local.LocalIndex;
 import org.pageseeder.flint.local.LocalIndexConfig;
-import org.pageseeder.flint.local.LocalIndexer;
 import org.pageseeder.flint.query.SearchPaging;
 import org.pageseeder.flint.query.SearchQuery;
 import org.pageseeder.flint.query.SearchResults;
@@ -213,37 +211,6 @@ public final class IndexMaster extends LocalIndexConfig {
 
   public void releaseSilently(IndexSearcher searcher) {
     this._manager.releaseQuietly(this._index, searcher);
-  }
-
-  public int indexFolder(String afolder) throws IOException, IndexException {
-
-    // find root folder
-    String folder = afolder == null ? "/" : afolder;
-    File root = new File(this._contentRoot, folder);
-    
-     // load existing documents
-    Map<File, Long> existing = new HashMap<>();
-    IndexReader reader = this._manager.grabReader(this._index);
-    try {
-      for (int i = 0; i < reader.numDocs(); i++) {
-        String path = reader.document(i).get("_path");
-        String lm   = reader.document(i).get("_lastmodified");
-        if (path != null && path.startsWith(folder) && lm != null) {
-          try {
-            existing.put(pathToFile(path), Long.valueOf(lm));
-          } catch (NumberFormatException ex) {
-            // ignore, should never happen anyway
-          }
-        }
-      }
-    } finally {
-      this._manager.release(this._index, reader);
-    }
-
-    // use local indexer
-    LocalIndexer indexer = new LocalIndexer(this._manager, this._index);
-    indexer.setFileFilter(FileFilters.getPSMLFiles());
-    return indexer.indexFolder(root, existing);
   }
 
   public void close() {
