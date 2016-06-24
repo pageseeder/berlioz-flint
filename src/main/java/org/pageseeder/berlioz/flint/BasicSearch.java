@@ -32,6 +32,7 @@ import java.util.List;
 
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.SortField.Type;
 import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.content.ContentRequest;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
@@ -56,13 +57,17 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Supported parameters are:
- *   facets
- *   field (default fulltext)
- *   term
- *   with
- *   sort
- *   page
- *   results
+ * 
+ *   facets      comma-separated list of fields to use as facets
+ *   max-facets  the max number of values for a facet (default is 20)
+ *   field       the field being searched (default fulltext)
+ *   term        the text that is searched
+ *   with        comma-separated list of facets values with the format [field]:[value]
+ *   sort        field name, if starting with "-", the order is reversed
+ *   sort-type   [int|double|float|long|document|string|score], default is score
+ *   page        the page number
+ *   results     the nb of results per page
+ *   
  */
 public class BasicSearch extends IndexGenerator {
   private static final Logger LOGGER = LoggerFactory.getLogger(BasicSearch.class);
@@ -143,8 +148,30 @@ public class BasicSearch extends IndexGenerator {
       query = BasicQuery.newBasicQuery(new TermParameter(field, typed), params);
       LOGGER.debug("Search in field {} for term {}", field, typed);
     }
-    query.setSort(new Sort(new SortField(req.getParameter("sort"), SortField.Type.SCORE)));
+    Sort sort = buildSort(req);
+    if (sort != null) query.setSort(sort);
     return query;
+  }
+
+  private Sort buildSort(ContentRequest req) {
+    // field name
+    String field = req.getParameter("sort");
+    if (field == null) return null;
+    // sort type
+    SortField.Type sortType = null;
+    String type  = req.getParameter("sort-type", "score");
+    if ("int".equalsIgnoreCase(type))           sortType = Type.INT;
+    else if ("double".equalsIgnoreCase(type))   sortType = Type.DOUBLE;
+    else if ("float".equalsIgnoreCase(type))    sortType = Type.FLOAT;
+    else if ("long".equalsIgnoreCase(type))     sortType = Type.LONG;
+    else if ("document".equalsIgnoreCase(type)) sortType = Type.DOC;
+    else if ("string".equalsIgnoreCase(type))   sortType = Type.STRING;
+    else sortType = Type.SCORE;
+    // reverse order
+    boolean reverse = field.startsWith("-");
+    if (reverse) field = field.substring(1);
+    // build sort field
+    return new Sort(new SortField(field, sortType, reverse));
   }
 
   private SearchPaging buildPaging(ContentRequest req) {
