@@ -33,6 +33,8 @@ import java.util.List;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortField.Type;
+import org.apache.lucene.search.SortedNumericSortField;
+import org.apache.lucene.search.SortedSetSortField;
 import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.content.ContentRequest;
 import org.pageseeder.berlioz.flint.model.FlintConfig;
@@ -64,7 +66,7 @@ import org.slf4j.LoggerFactory;
  *   term        the text that is searched
  *   with        comma-separated list of facets values with the format [field]:[value]
  *   sort        field name, if starting with "-", the order is reversed
- *   sort-type   [int|double|float|long|document|string|score], default is score
+ *   sort-type   [int|double|float|long|document|string|score,set], default is score
  *   page        the page number
  *   results     the nb of results per page
  *   
@@ -139,7 +141,7 @@ public class BasicSearch extends IndexGenerator {
     }
     // check if we should tokenize
     Catalog theCatalog = Catalogs.getCatalog(catalog);
-    boolean tokenize = theCatalog != null && theCatalog.isTokenizedForSearch(field);
+    boolean tokenize = theCatalog != null && theCatalog.isTokenized(field);
     BasicQuery<?> query;
     if (tokenize) {
       query = BasicQuery.newBasicQuery(new PhraseParameter(field, typed), params);
@@ -157,21 +159,22 @@ public class BasicSearch extends IndexGenerator {
     // field name
     String field = req.getParameter("sort");
     if (field == null) return null;
-    // sort type
-    SortField.Type sortType = null;
-    String type  = req.getParameter("sort-type", "score");
-    if ("int".equalsIgnoreCase(type))           sortType = Type.INT;
-    else if ("double".equalsIgnoreCase(type))   sortType = Type.DOUBLE;
-    else if ("float".equalsIgnoreCase(type))    sortType = Type.FLOAT;
-    else if ("long".equalsIgnoreCase(type))     sortType = Type.LONG;
-    else if ("document".equalsIgnoreCase(type)) sortType = Type.DOC;
-    else if ("string".equalsIgnoreCase(type))   sortType = Type.STRING;
-    else sortType = Type.SCORE;
     // reverse order
     boolean reverse = field.startsWith("-");
     if (reverse) field = field.substring(1);
+    // sort type
+    SortField sfield = null;
+    String type  = req.getParameter("sort-type", "score");
+    if ("int".equalsIgnoreCase(type))           sfield = new SortedNumericSortField(field, Type.INT,    reverse);
+    else if ("double".equalsIgnoreCase(type))   sfield = new SortedNumericSortField(field, Type.DOUBLE, reverse);
+    else if ("float".equalsIgnoreCase(type))    sfield = new SortedNumericSortField(field, Type.FLOAT,  reverse);
+    else if ("long".equalsIgnoreCase(type))     sfield = new SortedNumericSortField(field, Type.LONG,   reverse);
+    else if ("document".equalsIgnoreCase(type)) sfield = SortField.FIELD_DOC;
+    else if ("set".equalsIgnoreCase(type))      sfield = new SortedSetSortField(field, reverse);
+    else if ("string".equalsIgnoreCase(type))   sfield = new SortField(field, Type.STRING, reverse);
+    else sfield = SortField.FIELD_SCORE;
     // build sort field
-    return new Sort(new SortField(field, sortType, reverse));
+    return new Sort(sfield);
   }
 
   private SearchPaging buildPaging(ContentRequest req) {
