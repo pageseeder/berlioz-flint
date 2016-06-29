@@ -61,13 +61,13 @@ import org.slf4j.LoggerFactory;
  */
 public class FlintConfig {
   private static final Logger LOGGER = LoggerFactory.getLogger(FlintConfig.class);
-  protected static final String DEFAULT_INDEX_NAME = "default";
-  protected static final String DEFAULT_INDEX_LOCATION = "index";
-  protected static final String DEFAULT_CATALOG_LOCATION = "catalogs";
-  protected static final String DEFAULT_CONTENT_LOCATION = "/psml/content";
-  protected static final String DEFAULT_ITEMPLATES_LOCATION = "ixml";
-  protected static final int DEFAULT_MAX_WATCH_FOLDERS = 100000;
-  protected static final int DEFAULT_WATCHER_DELAY_IN_SECONDS = 5;
+  private static final String DEFAULT_INDEX_NAME = "default";
+  private static final String DEFAULT_INDEX_LOCATION = "index";
+  private static final String DEFAULT_CATALOG_LOCATION = "catalogs";
+  private static final String DEFAULT_CONTENT_LOCATION = "/psml/content";
+  private static final String DEFAULT_ITEMPLATES_LOCATION = "ixml";
+  private static final int DEFAULT_MAX_WATCH_FOLDERS = 100000;
+  private static final int DEFAULT_WATCHER_DELAY_IN_SECONDS = 5;
   private static volatile AnalyzerFactory analyzerFactory = null;
   private final File _directory;
   private final File _ixml;
@@ -318,7 +318,7 @@ public class FlintConfig {
   private IndexMaster createMaster(String name, IndexDefinition def) {
     // build content path
     File content = def.buildContentRoot(GlobalSettings.getRepository(), name);
-    File index   = new File(GlobalSettings.getRepository(), DEFAULT_INDEX_LOCATION + File.separator + name);
+    File index   = new File(this._directory, name);
     try {
       IndexMaster master = IndexMaster.create(getManager(), name, content, index, def);
       def.setTemplateError(null); // reset error
