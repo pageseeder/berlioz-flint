@@ -321,23 +321,14 @@ public final class IndexMaster extends LocalIndexConfig {
 
   @Override
   public DeleteRule getDeleteRule(File f) {
-    try {
-      return new DeleteRule("_src", f.getCanonicalPath());
-    } catch (IOException ex) {
-      LOGGER.error("Failed to compute canonical path for {}", f, ex);
-      return null;
-    }
+    return new DeleteRule("_src", f.getAbsolutePath());
   }
 
   @Override
   public Map<String, String> getParameters(File file) {
     HashMap<String, String> params = new HashMap<>();
     if (file.exists()) {
-      try {
-        params.put("_src", file.getCanonicalPath());
-      } catch (IOException ex) {
-        LOGGER.error("Failed to compute canonical path for {}", file, ex);
-      }
+      params.put("_src", file.getAbsolutePath());
       params.put("_path", fileToPath(file));
       params.put("_filename", file.getName());
       params.put("_visibility", "private");
@@ -350,11 +341,7 @@ public final class IndexMaster extends LocalIndexConfig {
   public Collection<IndexableField> getFields(File file) {
     Collection<IndexableField> fields = new ArrayList<>();
     if (file.exists()) {
-      try {
-        fields.add(buildField("_src", file.getCanonicalPath()));
-      } catch (IOException ex) {
-        LOGGER.error("Failed to compute canonical path for {}", file, ex);
-      }
+      fields.add(buildField("_src", file.getAbsolutePath()));
       fields.add(buildField("_path", fileToPath(file)));
       fields.add(buildField("_lastmodified", String.valueOf(file.lastModified())));
       fields.add(buildField("_creator", "berlioz"));
