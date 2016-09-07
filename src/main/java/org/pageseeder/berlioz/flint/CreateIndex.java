@@ -29,7 +29,7 @@ public final class CreateIndex implements ContentGenerator {
   private void createIndex(String index, XMLWriter xml) throws IOException {
     // find def and create master
     IndexDefinition def = FlintConfig.get().getIndexDefinitionFromIndexName(index);
-    IndexMaster master = def == null ? null : FlintConfig.get().getMaster(index);
+    IndexMaster master = def == null ? null : FlintConfig.get().getMaster(index, true);
     // output
     xml.openElement("index");
     xml.attribute("name", index);

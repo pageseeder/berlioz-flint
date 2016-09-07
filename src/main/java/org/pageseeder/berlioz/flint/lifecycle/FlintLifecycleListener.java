@@ -20,7 +20,7 @@ public class FlintLifecycleListener implements LifecycleListener {
             new File(root, folder.getName().split("_")[0]).exists()) {
           continue;
         }
-        if (config.getMaster(folder.getName()) == null) {
+        if (config.getMaster(folder.getName(), true) == null) {
           System.out.println("[BERLIOZ_INIT] Lifecycle: Failed to load index "+folder.getName());
         } else {
           nb++;
@@ -33,6 +33,7 @@ public class FlintLifecycleListener implements LifecycleListener {
 
   @Override
   public boolean stop() {
+    System.out.println("[BERLIOZ_STOP] Lifecycle: Closing Flint Indexes");
     // stop it all
     FlintConfig.get().stop();
     return true;

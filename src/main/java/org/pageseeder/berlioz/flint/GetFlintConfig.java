@@ -13,8 +13,8 @@
 package org.pageseeder.berlioz.flint;
 
 import java.io.File;
-import java.io.FileFilter;
 import java.io.IOException;
+
 import org.pageseeder.berlioz.BerliozException;
 import org.pageseeder.berlioz.Beta;
 import org.pageseeder.berlioz.content.ContentGenerator;
@@ -23,38 +23,36 @@ import org.pageseeder.berlioz.flint.model.FlintConfig;
 import org.pageseeder.berlioz.flint.model.IndexMaster;
 import org.pageseeder.berlioz.flint.util.FileFilters;
 import org.pageseeder.berlioz.util.ISO8601;
-import org.pageseeder.flint.api.Index;
 import org.pageseeder.xmlwriter.XMLWriter;
 
 @Beta
-public final class GetFlintConfig
-implements ContentGenerator {
-    public void process(ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
-        FlintConfig config = FlintConfig.get().get();
-        File directory = config.getRootDirectory();
-        xml.openElement("flint-config");
-        xml.attribute("directory", directory.getName().equals("index") ? "index" : directory.getName());
-        xml.attribute("class", config.getClass().getName());
-        if (directory.exists() && directory.isDirectory()) {
-            File[] subdirs;
-            for (File f : subdirs = directory.listFiles(FileFilters.getFolders())) {
-                this.toBasicIndexXML(xml, f);
-            }
-        }
-        xml.closeElement();
-    }
+public final class GetFlintConfig implements ContentGenerator {
 
-    private void toBasicIndexXML(XMLWriter xml, File index) throws IOException {
-        xml.openElement("index");
-        xml.attribute("name", index.getName());
-        IndexMaster master = FlintConfig.get().getMaster(index.getName());
-        long modified = master == null ? -1 : FlintConfig.get().getManager().getLastTimeUsed(master.getIndex());
-        boolean exists = modified > 0;
-        xml.attribute("exists", Boolean.toString(exists));
-        if (exists) {
-            xml.attribute("modified", ISO8601.format((long)modified, (ISO8601)ISO8601.DATETIME));
-        }
-        xml.closeElement();
+  public void process(ContentRequest req, XMLWriter xml) throws BerliozException, IOException {
+    FlintConfig config = FlintConfig.get();
+    File directory = config.getRootDirectory();
+    xml.openElement("flint-config");
+    xml.attribute("directory", directory.getName().equals("index") ? "index" : directory.getName());
+    xml.attribute("class", config.getClass().getName());
+    if (directory.exists() && directory.isDirectory()) {
+      for (File f : directory.listFiles(FileFilters.getFolders())) {
+        this.toBasicIndexXML(xml, f);
+      }
     }
+    xml.closeElement();
+  }
+
+  private void toBasicIndexXML(XMLWriter xml, File index) throws IOException {
+    xml.openElement("index");
+    xml.attribute("name", index.getName());
+    IndexMaster master = FlintConfig.get().getMaster(index.getName());
+    long modified = master == null ? -1 : FlintConfig.get().getManager().getLastTimeUsed(master.getIndex());
+    boolean exists = modified > 0;
+    xml.attribute("exists", Boolean.toString(exists));
+    if (exists) {
+      xml.attribute("modified", ISO8601.format((long)modified, (ISO8601)ISO8601.DATETIME));
+    }
+    xml.closeElement();
+  }
 }
 

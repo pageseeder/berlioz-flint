@@ -132,14 +132,23 @@ public class FlintConfig {
   }
 
   /**
-   * The index master is created if not in memory.
+   * The index master is not created if not in memory.
    * 
-   * @param name
-   *          the master name
+   * @param name the master name
    * 
    * @return the index master with the name provided
    */
   public IndexMaster getMaster(String name) {
+    return getMaster(name, false);
+  }
+
+  /**
+   * @param name              the master name
+   * @param createIfNotFound  whether or not to create the index if not existing
+   * 
+   * @return the index master with the name provided
+   */
+  public IndexMaster getMaster(String name, boolean createIfNotFound) {
     String key = name == null ? DEFAULT_INDEX_NAME : name;
     // make sure only one gets created
     synchronized (this.indexes) {
@@ -338,7 +347,7 @@ public class FlintConfig {
         if (folder.isDirectory() && def.indexNameMatches(folder.getName())) {
           IndexMaster master = getMaster(folder.getName());
           try {
-            master.reloadTemplate();
+            if (master != null) master.reloadTemplate();
             def.setTemplateError(null); // reset error
           } catch (TransformerException ex) {
             def.setTemplateError(ex.getMessageAndLocation());
