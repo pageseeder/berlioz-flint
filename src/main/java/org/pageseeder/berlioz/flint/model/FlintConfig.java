@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.transform.TransformerException;
@@ -44,17 +45,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Flint config in berlioz config:
- *    <flint>
- *      <watcher [watch="true|false"] [root="/psml/content"] [max-folders="1000"] />
- *      <threads [number="10"] [priority="5"] />
- *      <index types="default,books,schools,products">
- *        <default  name="default"     path="/psml/content/"            />
- *        <books    name="book-{name}" path="/psml/content/book/{name}" template="book.xsl"/>
- *        <schools  name="school"      path="/psml/content/schools"     template="school.xsl"/>
- *        <products name="product"     path="/psml/content/products"    [template="products.xsl"]/>
- *      </index>
- *    </flint>
+ * Flint config in berlioz config: <flint> <watcher [watch="true|false"]
+ * [root="/psml/content"] [max-folders="1000"] /> <threads [number="10"]
+ * [priority="5"] /> <index types="default,books,schools,products">
+ * <default name="default" path="/psml/content/" />
+ * <books name="book-{name}" path="/psml/content/book/{name}" template=
+ * "book.xsl"/>
+ * <schools name="school" path="/psml/content/schools" template="school.xsl"/>
+ * <products name="product" path="/psml/content/products"
+ * [template="products.xsl"]/> </index> </flint>
  * 
  * @author jbreure
  *
@@ -88,7 +87,7 @@ public class FlintConfig {
     public Collection<String> getMimeTypesSupported() {
       ArrayList<String> mimes = new ArrayList<String>();
       mimes.add("psml");
-//      mimes.add("xml");
+      // mimes.add("xml");
       return mimes;
     }
   };
@@ -98,7 +97,8 @@ public class FlintConfig {
   }
 
   public static synchronized FlintConfig get() {
-    if (SINGLETON == null) SINGLETON = FlintConfig.buildDefaultConfig();
+    if (SINGLETON == null)
+      SINGLETON = FlintConfig.buildDefaultConfig();
     return SINGLETON;
   }
 
@@ -106,10 +106,39 @@ public class FlintConfig {
     return this.manager;
   }
 
+  /**
+   * Build an object used to query multiple indexes at the same time.
+   * 
+   * @param names
+   *          list of index names
+   * 
+   * @return the multi indexes master object
+   */
+  public MultipleIndexesMaster getMultiMaster(Collection<String> names) {
+    List<IndexMaster> masters = new ArrayList<>(names.size());
+    for (String name : names) {
+      IndexMaster master = getMaster(name);
+      if (master != null)
+        masters.add(master);
+    }
+    return new MultipleIndexesMaster(masters, this.manager);
+  }
+
+  /**
+   * @return the index master with the name "default"
+   */
   public IndexMaster getMaster() {
     return getMaster(DEFAULT_INDEX_NAME);
   }
 
+  /**
+   * The index master is created if not in memory.
+   * 
+   * @param name
+   *          the master name
+   * 
+   * @return the index master with the name provided
+   */
   public IndexMaster getMaster(String name) {
     String key = name == null ? DEFAULT_INDEX_NAME : name;
     // make sure only one gets created
@@ -121,7 +150,8 @@ public class FlintConfig {
           LOGGER.error("Failed to create index {}, no matching index definition found in configuration", key);
         } else {
           IndexMaster master = createMaster(key, def);
-          if (master != null) this.indexes.put(key, master);
+          if (master != null)
+            this.indexes.put(key, master);
         }
       }
       return this.indexes.get(key);
@@ -129,9 +159,11 @@ public class FlintConfig {
   }
 
   /**
-   * Close and removes index from list. Also deletes index files from index root folder.
+   * Close and removes index from list. Also deletes index files from index root
+   * folder.
    * 
-   * @param name the index name
+   * @param name
+   *          the index name
    * 
    * @return true if completely removed
    */
@@ -160,9 +192,9 @@ public class FlintConfig {
     Catalogs.setRoot(catalogs);
     // create config
     File index = new File(GlobalSettings.getRepository(), DEFAULT_INDEX_LOCATION);
-    File ixml  = new File(GlobalSettings.getRepository(), DEFAULT_ITEMPLATES_LOCATION);
+    File ixml = new File(GlobalSettings.getRepository(), DEFAULT_ITEMPLATES_LOCATION);
     if (!index.exists()) {
-      index.mkdirs(); 
+      index.mkdirs();
     }
     return new FlintConfig(index, ixml);
   }
@@ -171,7 +203,7 @@ public class FlintConfig {
     this._directory = directory;
     this._ixml = ixml;
     // manager
-    int nbThreads      = GlobalSettings.get("flint.threads.number",   10);
+    int nbThreads = GlobalSettings.get("flint.threads.number", 10);
     int threadPriority = GlobalSettings.get("flint.threads.priority", 5);
     this.listener = new QuietListener(LOGGER);
     this.manager = new IndexManager(new LocalFileContentFetcher(), this.listener, nbThreads, false);
@@ -180,9 +212,10 @@ public class FlintConfig {
     // watch is on?
     boolean watch = GlobalSettings.get("flint.watcher.watch", true);
     if (watch) {
-      File root         = new File(GlobalSettings.getRepository(), GlobalSettings.get("flint.watcher.root", DEFAULT_CONTENT_LOCATION));
-      int maxFolders    = GlobalSettings.get("flint.watcher.max-folders", DEFAULT_MAX_WATCH_FOLDERS);
-      int indexingDelay = GlobalSettings.get("flint.watcher.delay",       DEFAULT_WATCHER_DELAY_IN_SECONDS);
+      File root = new File(GlobalSettings.getRepository(),
+          GlobalSettings.get("flint.watcher.root", DEFAULT_CONTENT_LOCATION));
+      int maxFolders = GlobalSettings.get("flint.watcher.max-folders", DEFAULT_MAX_WATCH_FOLDERS);
+      int indexingDelay = GlobalSettings.get("flint.watcher.delay", DEFAULT_WATCHER_DELAY_IN_SECONDS);
       this.watcher = new FolderWatcher(root, maxFolders, indexingDelay);
       this.watcher.start();
     } else {
@@ -191,14 +224,16 @@ public class FlintConfig {
     // load index definitions
     String types = GlobalSettings.get("flint.index.types", "default");
     types_loop: for (String type : types.split(",")) {
-      String indexName  = GlobalSettings.get("flint.index."+type+".name", DEFAULT_INDEX_NAME);
-      String path       = GlobalSettings.get("flint.index."+type+".path", DEFAULT_CONTENT_LOCATION);
-      String excludes   = GlobalSettings.get("flint.index."+type+".excludes");
-      File template = new File(ixml, GlobalSettings.get("flint.index."+type+".template", indexName+".xsl"));
+      String indexName = GlobalSettings.get("flint.index." + type + ".name", DEFAULT_INDEX_NAME);
+      String path = GlobalSettings.get("flint.index." + type + ".path", DEFAULT_CONTENT_LOCATION);
+      String excludes = GlobalSettings.get("flint.index." + type + ".excludes");
+      File template = new File(ixml, GlobalSettings.get("flint.index." + type + ".template", indexName + ".xsl"));
       IndexDefinition def;
       try {
-        def = new IndexDefinition(type, indexName, path, excludes == null ? null : Arrays.asList(excludes.split(",")), template);
-        LOGGER.debug("New index config for {} with index name {}, path {} and template {}", type, indexName, path, template.getAbsolutePath());
+        def = new IndexDefinition(type, indexName, path, excludes == null ? null : Arrays.asList(excludes.split(",")),
+            template);
+        LOGGER.debug("New index config for {} with index name {}, path {} and template {}", type, indexName, path,
+            template.getAbsolutePath());
       } catch (InvalidIndexDefinitionException ex) {
         LOGGER.warn("Ignoring invalid index definition {}: {}", type, ex.getMessage());
         continue;
@@ -206,12 +241,13 @@ public class FlintConfig {
       // check for clashes
       for (IndexDefinition existing : this.indexConfigs.values()) {
         if (def.indexNameClash(existing)) {
-          LOGGER.warn("Ignoring invalid index definition {} as it clashes with definition {}", type, existing.getName());
+          LOGGER.warn("Ignoring invalid index definition {} as it clashes with definition {}", type,
+              existing.getName());
           continue types_loop;
         }
       }
-      String regexInclude = GlobalSettings.get("flint.index."+type+".files.includes");
-      String regexExclude = GlobalSettings.get("flint.index."+type+".files.excludes");
+      String regexInclude = GlobalSettings.get("flint.index." + type + ".files.includes");
+      String regexExclude = GlobalSettings.get("flint.index." + type + ".files.excludes");
       // set filters
       def.setIndexingFilesRegex(regexInclude, regexExclude);
       // autosuggests
@@ -270,7 +306,8 @@ public class FlintConfig {
   }
 
   public static synchronized Analyzer newAnalyzer() {
-    if (analyzerFactory == null) return new StandardAnalyzer();
+    if (analyzerFactory == null)
+      return new StandardAnalyzer();
     return analyzerFactory.getAnalyzer();
   }
 
@@ -279,7 +316,8 @@ public class FlintConfig {
   }
 
   public IndexDefinition getIndexDefinitionFromIndexName(String indexname) {
-    if (indexname == null) return null;
+    if (indexname == null)
+      return null;
     // find config
     for (IndexDefinition config : this.indexConfigs.values()) {
       // name matches?
@@ -318,7 +356,7 @@ public class FlintConfig {
   private IndexMaster createMaster(String name, IndexDefinition def) {
     // build content path
     File content = def.buildContentRoot(GlobalSettings.getRepository(), name);
-    File index   = new File(this._directory, name);
+    File index = new File(this._directory, name);
     try {
       IndexMaster master = IndexMaster.create(getManager(), name, content, index, def);
       def.setTemplateError(null); // reset error
@@ -330,15 +368,15 @@ public class FlintConfig {
   }
 
   private void loadAutoSuggests(IndexDefinition def) {
-    String propPrefix = "flint.index."+def.getName()+'.';
+    String propPrefix = "flint.index." + def.getName() + '.';
     // autosuggests
-    String autosuggests = GlobalSettings.get(propPrefix+"autosuggests");
+    String autosuggests = GlobalSettings.get(propPrefix + "autosuggests");
     if (autosuggests != null) {
       for (String autosuggest : autosuggests.split(",")) {
-        String fields  = GlobalSettings.get(propPrefix+autosuggest+".fields");
-        String terms   = GlobalSettings.get(propPrefix+autosuggest+".terms", "false");
-        String rfields = GlobalSettings.get(propPrefix+autosuggest+".result-fields");
-        String weight = GlobalSettings.get(propPrefix+autosuggest+".weight", "");
+        String fields = GlobalSettings.get(propPrefix + autosuggest + ".fields");
+        String terms = GlobalSettings.get(propPrefix + autosuggest + ".terms", "false");
+        String rfields = GlobalSettings.get(propPrefix + autosuggest + ".result-fields");
+        String weight = GlobalSettings.get(propPrefix + autosuggest + ".weight", "");
         if (fields != null) {
           Map<String, Float> weights = new HashMap<>();
           for (String w : weight.split(",")) {
@@ -347,13 +385,15 @@ public class FlintConfig {
               try {
                 weights.put(parts[0], Float.valueOf(parts[1]));
               } catch (NumberFormatException ex) {
-                LOGGER.error("Autosuggeset {}: ignoring invalid weight for field {}: not a number! ()", autosuggest, parts[0], parts[1]);
+                LOGGER.error("Autosuggeset {}: ignoring invalid weight for field {}: not a number! ()", autosuggest,
+                    parts[0], parts[1]);
               }
             }
           }
           def.addAutoSuggest(autosuggest, fields, terms, rfields, weights);
         } else {
-          LOGGER.warn("Ignoring invalid autosuggest definition for {}: fields {}, terms {}, result fields {}", autosuggest, fields, terms, rfields);
+          LOGGER.warn("Ignoring invalid autosuggest definition for {}: fields {}, terms {}, result fields {}",
+              autosuggest, fields, terms, rfields);
         }
       }
     }
