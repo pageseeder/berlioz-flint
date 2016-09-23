@@ -140,16 +140,24 @@ public class FolderWatcher {
         LOGGER.debug("Re-indexing file {}", file);
         Requester req = new Requester("Berlioz File Watcher");
         for (File afile : file.listFiles()) {
-          for (IndexMaster destination : destinations) {
-            config.getManager().index(afile.getAbsolutePath(), LocalFileContentType.SINGLETON,
-                                      destination.getIndex(), req, Priority.HIGH, null);
+          if (Files.isDirectory(afile.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            folderAdded(afile);
+          } else {
+            for (IndexMaster destination : destinations) {
+              config.getManager().index(afile.getAbsolutePath(), LocalFileContentType.SINGLETON,
+                                        destination.getIndex(), req, Priority.HIGH, null);
+            }
           }
         }
       } else {
         LOGGER.debug("Delay re-indexing of file {}", file);
         for (File afile : file.listFiles()) {
-          for (IndexMaster destination : destinations) {
-            this._delayedIndexer.index(destination.getIndex(), afile.getAbsolutePath());
+          if (Files.isDirectory(afile.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            folderAdded(afile);
+          } else {
+            for (IndexMaster destination : destinations) {
+              this._delayedIndexer.index(destination.getIndex(), afile.getAbsolutePath());
+            }
           }
         }
       }
@@ -179,12 +187,22 @@ public class FolderWatcher {
       if (this._delayedIndexer == null) {
         LOGGER.debug("Re-indexing file {}", file);
         Requester req = new Requester("Berlioz File Watcher");
-        for (File afile : toReIndex)
-          config.getManager().index(afile.getAbsolutePath(), LocalFileContentType.SINGLETON, destination.getIndex(), req, Priority.HIGH, null);
+        for (File afile : toReIndex) {
+          if (Files.isDirectory(afile.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            folderDeleted(afile);
+          } else {
+            config.getManager().index(afile.getAbsolutePath(), LocalFileContentType.SINGLETON, destination.getIndex(), req, Priority.HIGH, null);
+          }
+        }
       } else {
         LOGGER.debug("Delay re-indexing of file {}", file);
-        for (File afile : toReIndex)
-          this._delayedIndexer.index(destination.getIndex(), afile.getAbsolutePath());
+        for (File afile : toReIndex) {
+          if (Files.isDirectory(afile.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            folderDeleted(afile);
+          } else {
+            this._delayedIndexer.index(destination.getIndex(), afile.getAbsolutePath());
+          }
+        }
       }
     }
   }
